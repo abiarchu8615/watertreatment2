@@ -1,0 +1,43 @@
+{
+  "task": "Industrial sensor anomaly detection using Neural Network",
+  "target": "Normal/Attack",
+  "model": "MLPClassifier Neural Network",
+  "accuracy": 0.99588,
+  "classification_report": {
+    "0": {
+      "precision": 0.9978314994779536,
+      "recall": 0.99392,
+      "f1-score": 0.9958719089415254,
+      "support": 12500.0
+    },
+    "1": {
+      "precision": 0.9939437405370946,
+      "recall": 0.99784,
+      "f1-score": 0.9958880594035691,
+      "support": 12500.0
+    },
+    "accuracy": 0.99588,
+    "macro avg": {
+      "precision": 0.9958876200075241,
+      "recall": 0.99588,
+      "f1-score": 0.9958799841725472,
+      "support": 25000.0
+    },
+    "weighted avg": {
+      "precision": 0.9958876200075241,
+      "recall": 0.99588,
+      "f1-score": 0.9958799841725473,
+      "support": 25000.0
+    }
+  },
+  "confusion_matrix": [
+    [
+      12424,
+      76
+    ],
+    [
+      27,
+      12473
+    ]
+  ]
+}

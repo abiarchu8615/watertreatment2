@@ -1,0 +1,7 @@
+{
+  "task": "Plant energy consumption prediction using Neural Network",
+  "target": "Energy Consumption",
+  "model": "MLPRegressor Neural Network",
+  "mae": 35696.645492063864,
+  "r2_score": -0.29546888136428606
+}
