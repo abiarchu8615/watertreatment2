@@ -24,6 +24,7 @@ st.write(
     "water quality analysis, energy prediction, and industrial anomaly detection."
 )
 
+
 # =========================
 # SIDEBAR CONTROLS
 # =========================
@@ -87,6 +88,104 @@ def show_regression_metrics(metrics, title="Regression Model Performance"):
 
 
 # =========================
+# MAINTENANCE DECISION ENGINE
+# =========================
+
+def get_maintenance_decision(module, prediction):
+
+    if module == "Water Quality Pollution Level":
+
+        if str(prediction).lower() in ["high", "unsafe", "severe", "critical"]:
+            return (
+                "Critical",
+                "Increase aeration and inspect biological treatment stage immediately."
+            )
+
+        elif str(prediction).lower() in ["medium", "moderate"]:
+            return (
+                "Medium Risk",
+                "Monitor pH, turbidity, and dissolved oxygen closely."
+            )
+
+        else:
+            return (
+                "Safe",
+                "Water quality is stable. No immediate action required."
+            )
+
+    elif module == "Leak Status":
+
+        if str(prediction).lower() in ["leak", "yes", "1", "true", "detected"]:
+            return (
+                "High Risk",
+                "Inspect pipeline section B within 24 hours."
+            )
+
+        else:
+            return (
+                "Normal",
+                "Pipeline condition appears stable."
+            )
+
+    elif module == "Burst Status":
+
+        if str(prediction).lower() in ["burst", "yes", "1", "true", "detected"]:
+            return (
+                "Critical",
+                "Emergency shutdown and burst repair recommended."
+            )
+
+        else:
+            return (
+                "Normal",
+                "No burst risk detected."
+            )
+
+    elif module == "Energy Consumption":
+
+        try:
+            if float(prediction) > 1000:
+                return (
+                    "High Energy Risk",
+                    "Reduce pump load during peak operating hours."
+                )
+
+            else:
+                return (
+                    "Efficient",
+                    "Energy consumption is within expected range."
+                )
+
+        except Exception:
+            return (
+                "Unknown",
+                "Unable to evaluate energy risk."
+            )
+
+    return (
+        "Unknown",
+        "No maintenance recommendation available."
+    )
+
+
+def show_maintenance_decision(risk, action):
+    st.subheader("Recommended Maintenance Decision")
+
+    col1, col2 = st.columns(2)
+
+    col1.metric("Risk Level", risk)
+
+    if risk in ["Critical", "High Risk", "High Energy Risk"]:
+        col2.error(action)
+
+    elif risk in ["Medium Risk"]:
+        col2.warning(action)
+
+    else:
+        col2.success(action)
+
+
+# =========================
 # OVERVIEW PAGE
 # =========================
 
@@ -122,6 +221,10 @@ if selected_page == "Overview":
     - **Leak Detection AI:** detects leak and burst risk from pressure, flow, and temperature sensors.
     - **Energy Digital Twin:** predicts energy consumption based on process and environmental conditions.
     - **Sensor Anomaly AI:** detects abnormal or attack-like behaviour in plant sensor data.
+
+    ### Predictive Maintenance Workflow
+
+    Sensor Data → AI Prediction → Risk Detection → Maintenance Decision
     """)
 
 
@@ -464,7 +567,15 @@ if selected_page == "AI Prediction Demo":
 
             if st.button("Predict water quality"):
                 pred = model.predict(X)[0]
+
                 st.success(f"Predicted Pollution Level: {pred}")
+
+                risk, action = get_maintenance_decision(
+                    "Water Quality Pollution Level",
+                    pred
+                )
+
+                show_maintenance_decision(risk, action)
 
         else:
             st.warning("Train models first using: python train_models.py")
@@ -504,7 +615,15 @@ if selected_page == "AI Prediction Demo":
 
             if st.button("Predict leak/burst"):
                 pred = model.predict(X)[0]
+
                 st.success(f"Predicted {model_choice}: {pred}")
+
+                risk, action = get_maintenance_decision(
+                    model_choice,
+                    pred
+                )
+
+                show_maintenance_decision(risk, action)
 
         else:
             st.warning("Train models first using: python train_models.py")
@@ -530,7 +649,15 @@ if selected_page == "AI Prediction Demo":
 
             if st.button("Predict energy consumption"):
                 pred = model.predict(edited)[0]
+
                 st.success(f"Predicted Energy Consumption: {pred:,.2f}")
+
+                risk, action = get_maintenance_decision(
+                    "Energy Consumption",
+                    pred
+                )
+
+                show_maintenance_decision(risk, action)
 
         else:
             st.warning("Train models first using: python train_models.py")
