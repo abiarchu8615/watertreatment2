@@ -4,7 +4,6 @@ scikit-learn
 joblib
 streamlit
 plotly
-tensorflow
 keras
 matplotlib
 seaborn
