@@ -2,42 +2,42 @@
   "task": "Industrial sensor anomaly detection using Neural Network",
   "target": "Normal/Attack",
   "model": "MLPClassifier Neural Network",
-  "accuracy": 0.99588,
+  "accuracy": 0.99656,
   "classification_report": {
     "0": {
-      "precision": 0.9978314994779536,
-      "recall": 0.99392,
-      "f1-score": 0.9958719089415254,
+      "precision": 0.9972760775516744,
+      "recall": 0.99584,
+      "f1-score": 0.9965575214154191,
       "support": 12500.0
     },
     "1": {
-      "precision": 0.9939437405370946,
-      "recall": 0.99784,
-      "f1-score": 0.9958880594035691,
+      "precision": 0.9958459817862279,
+      "recall": 0.99728,
+      "f1-score": 0.996562475017987,
       "support": 12500.0
     },
-    "accuracy": 0.99588,
+    "accuracy": 0.99656,
     "macro avg": {
-      "precision": 0.9958876200075241,
-      "recall": 0.99588,
-      "f1-score": 0.9958799841725472,
+      "precision": 0.9965610296689511,
+      "recall": 0.99656,
+      "f1-score": 0.996559998216703,
       "support": 25000.0
     },
     "weighted avg": {
-      "precision": 0.9958876200075241,
-      "recall": 0.99588,
-      "f1-score": 0.9958799841725473,
+      "precision": 0.9965610296689511,
+      "recall": 0.99656,
+      "f1-score": 0.9965599982167029,
       "support": 25000.0
     }
   },
   "confusion_matrix": [
     [
-      12424,
-      76
+      12448,
+      52
     ],
     [
-      27,
-      12473
+      34,
+      12466
     ]
   ]
 }
