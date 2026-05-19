@@ -661,3 +661,4 @@ if selected_page == "AI Prediction Demo":
 
         else:
             st.warning("Train models first using: python train_models.py")
+
