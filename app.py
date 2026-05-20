@@ -8,6 +8,9 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
+import requests
+import os
+
 try:
     from scipy.optimize import minimize
     SCIPY_AVAILABLE = True
@@ -116,6 +119,166 @@ def safe_dataframe(df, message="No records to display."):
         st.info(message)
     else:
         st.dataframe(df, use_container_width=True)
+
+
+# =========================
+# ALERT / PUSH NOTIFICATION HELPERS
+# =========================
+
+def send_telegram_alert(message):
+    """
+    Sends an alert to Telegram.
+
+    Required environment variables:
+    - TELEGRAM_BOT_TOKEN
+    - TELEGRAM_CHAT_ID
+    """
+    bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
+    chat_id = os.getenv("TELEGRAM_CHAT_ID")
+
+    if not bot_token or not chat_id:
+        st.warning(
+            "Telegram credentials not configured. "
+            "Set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID."
+        )
+        return False
+
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+
+    payload = {
+        "chat_id": chat_id,
+        "text": message,
+        "parse_mode": "Markdown"
+    }
+
+    try:
+        response = requests.post(url, json=payload, timeout=10)
+        response.raise_for_status()
+        return True
+    except Exception as e:
+        st.error(f"Telegram alert failed: {e}")
+        return False
+
+
+def send_whatsapp_alert(message):
+    """
+    Sends an alert to WhatsApp using Twilio WhatsApp API.
+
+    Required environment variables:
+    - TWILIO_ACCOUNT_SID
+    - TWILIO_AUTH_TOKEN
+    - TWILIO_WHATSAPP_FROM   example: whatsapp:+14155238886
+    - TWILIO_WHATSAPP_TO     example: whatsapp:+60123456789
+    """
+    account_sid = os.getenv("TWILIO_ACCOUNT_SID")
+    auth_token = os.getenv("TWILIO_AUTH_TOKEN")
+    from_number = os.getenv("TWILIO_WHATSAPP_FROM")
+    to_number = os.getenv("TWILIO_WHATSAPP_TO")
+
+    if not all([account_sid, auth_token, from_number, to_number]):
+        st.warning(
+            "WhatsApp credentials not configured. "
+            "Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, "
+            "TWILIO_WHATSAPP_FROM, and TWILIO_WHATSAPP_TO."
+        )
+        return False
+
+    url = (
+        f"https://api.twilio.com/2010-04-01/Accounts/"
+        f"{account_sid}/Messages.json"
+    )
+
+    data = {
+        "From": from_number,
+        "To": to_number,
+        "Body": message
+    }
+
+    try:
+        response = requests.post(
+            url,
+            data=data,
+            auth=(account_sid, auth_token),
+            timeout=10
+        )
+        response.raise_for_status()
+        return True
+    except Exception as e:
+        st.error(f"WhatsApp alert failed: {e}")
+        return False
+
+
+def build_alert_message(ticket):
+    return f"""🚨 *Smart Water Treatment Alert*
+
+Ticket ID: {ticket["ticket_id"]}
+Priority: {ticket["priority"]}
+Module: {ticket["module"]}
+Signal: {ticket["asset_or_signal"]}
+Failure Status: {ticket["failure_status"]}
+Due Time: {ticket["due_time"]}
+Risk Probability: {ticket["risk_probability"]}
+Severity Score: {ticket["severity_score"]}
+
+Likely Cause:
+{ticket["likely_cause"]}
+
+Recommended Action:
+{ticket["maintenance_action"]}
+
+Owner:
+{ticket["owner"]}
+"""
+
+
+def render_alert_buttons(ticket):
+    st.subheader("Send Alert / Push Notification")
+
+    alert_message = build_alert_message(ticket)
+
+    st.text_area(
+        "Alert Message Preview",
+        alert_message,
+        height=260
+    )
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        if st.button(
+            "Send Telegram Alert",
+            key=f"telegram_{ticket['ticket_id']}"
+        ):
+            if send_telegram_alert(alert_message):
+                st.success("Telegram alert sent successfully.")
+
+    with col2:
+        if st.button(
+            "Send WhatsApp Alert",
+            key=f"whatsapp_{ticket['ticket_id']}"
+        ):
+            if send_whatsapp_alert(alert_message):
+                st.success("WhatsApp alert sent successfully.")
+
+
+def auto_send_critical_alert(ticket):
+    """
+    Sends one automatic Telegram alert per ticket for HIGH/CRITICAL priority.
+    WhatsApp is kept manual to avoid accidental repeated paid messages.
+    """
+    if ticket["priority"] not in ["HIGH", "CRITICAL"]:
+        return
+
+    sent_key = f"auto_alert_sent_{ticket['ticket_id']}"
+
+    if st.session_state.get(sent_key):
+        return
+
+    alert_message = build_alert_message(ticket)
+
+    if send_telegram_alert(alert_message):
+        st.session_state[sent_key] = True
+        st.success("Automatic Telegram alert sent for high-risk ticket.")
 
 
 # =========================
@@ -1193,6 +1356,11 @@ def show_maintenance_ticket(ticket):
         file_name=f'{ticket["ticket_id"]}.csv',
         mime="text/csv"
     )
+
+    if ticket["priority"] in ["HIGH", "CRITICAL"]:
+        auto_send_critical_alert(ticket)
+
+    render_alert_buttons(ticket)
 
 
 def create_ticket_from_trend(trend_df, forecast_df, meta, module_choice, value_col, direction):
