@@ -45,8 +45,10 @@ selected_page = st.sidebar.radio(
         "AI Prediction Demo",
         "Failure Trend Prediction",
         "AI Chatbot"
+        "Optimization AI"
     ]
 )
+
 
 
 # =========================
@@ -2720,3 +2722,90 @@ if selected_page == "Failure Trend Prediction":
 
 if selected_page == "AI Chatbot":
     render_ai_chatbot_page()
+    
+# =========================
+# OPTIMIZATION AI PAGE
+# =========================
+
+if selected_page == "Optimization AI":
+
+    st.subheader("RBC Operational Optimization AI")
+
+    df = load_csv("Water_Quality_Dataset.csv")
+
+    latest = df.iloc[-1]
+
+    current_energy = st.slider(
+        "Current Energy",
+        0.0,
+        5000.0,
+        1200.0
+    )
+
+    current_do = st.slider(
+        "Current DO",
+        0.0,
+        15.0,
+        float(latest["DO (mg/L)"])
+    )
+
+    current_bod = st.slider(
+        "Current BOD",
+        0.0,
+        100.0,
+        float(latest["BOD (mg/L)"])
+    )
+
+    current_flow = st.slider(
+        "Current Flow",
+        0.0,
+        300.0,
+        100.0
+    )
+
+    current_ph = st.slider(
+        "Current pH",
+        0.0,
+        14.0,
+        float(latest["pH"])
+    )
+
+    if st.button("Run Optimization"):
+
+        result = optimize_rbc_operation(
+            current_energy=current_energy,
+            current_do=current_do,
+            current_bod=current_bod,
+            current_flow=current_flow,
+            current_ph=current_ph
+        )
+
+        st.success("Optimization Complete")
+
+        c1, c2 = st.columns(2)
+
+        c1.metric(
+            "Optimal Pump Speed",
+            result["optimal_pump_speed"]
+        )
+
+        c1.metric(
+            "Optimal Aeration",
+            result["optimal_aeration_rate"]
+        )
+
+        c2.metric(
+            "Optimal Chemical Dose",
+            result["optimal_chemical_dose"]
+        )
+
+        c2.metric(
+            "Estimated Cost",
+            result["estimated_operating_cost"]
+        )
+
+        st.info(
+            "Optimization AI recommends operational settings "
+            "that reduce energy usage while maintaining "
+            "stable RBC treatment performance."
+        )
