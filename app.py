@@ -2524,20 +2524,117 @@ def render_multi_agent_report(report):
         ]
     )
 
-    with tab1:
-        st.json(report.get("monitoring_result", {}))
+   with tab1:
+    monitoring = report.get("monitoring_result", {})
 
-    with tab2:
-        st.json(report.get("prediction_result", {}))
+    st.markdown("### Monitoring Summary")
 
-    with tab3:
-        st.json(report.get("trend_result", {}))
+    st.write(
+        f"""
+        - Signal monitored: **{monitoring.get('signal', 'N/A')}**
+        - Current value: **{monitoring.get('latest_value', 0):.2f}**
+        - Average value: **{monitoring.get('average_value', 0):.2f}**
+        - Minimum detected: **{monitoring.get('minimum_value', 0):.2f}**
+        - Maximum detected: **{monitoring.get('maximum_value', 0):.2f}**
+        """
+    )
 
-    with tab4:
-        st.json(report.get("decision_result", {}))
+    st.success("System monitoring completed successfully.")
 
-    with tab5:
-        st.json(report.get("optimization_result", {}))
+
+with tab2:
+    prediction = report.get("prediction_result", {})
+
+    st.markdown("### Prediction Summary")
+
+    if prediction.get("model_type") == "Classification":
+
+        st.write(
+            f"""
+            - AI model type: **Classification**
+            - Prediction accuracy: **{prediction.get('accuracy', 0):.2%}**
+            - Module analysed: **{prediction.get('module', 'N/A')}**
+            """
+        )
+
+    else:
+
+        st.write(
+            f"""
+            - AI model type: **Regression**
+            - R² score: **{prediction.get('r2_score', 0):.2%}**
+            - Mean absolute error: **{prediction.get('mae', 0):.2f}**
+            """
+        )
+
+    st.info("Prediction analysis completed.")
+
+
+with tab3:
+    trend = report.get("trend_result", {})
+
+    st.markdown("### Failure Trend Analysis")
+
+    st.write(
+        f"""
+        - Current status: **{trend.get('latest_status', 'NORMAL')}**
+        - Severity level: **{trend.get('severity_level', 'LOW')}**
+        - Risk probability: **{trend.get('risk_probability', 0):.0%}**
+        - Trend change: **{trend.get('trend_change', 0):.3f}**
+        """
+    )
+
+    if trend.get("severity_level") in ["HIGH", "CRITICAL"]:
+        st.warning("The system is moving toward abnormal operating conditions.")
+    else:
+        st.success("The system trend is stable.")
+
+
+with tab4:
+    decision = report.get("decision_result", {})
+
+    st.markdown("### Maintenance Decision")
+
+    st.write(
+        f"""
+        - Priority: **{decision.get('priority', 'LOW')}**
+        - Responsible team: **{decision.get('owner', 'Operations Team')}**
+        - Timeframe: **{decision.get('timeframe', 'Routine')}**
+        """
+    )
+
+    st.error(decision.get("recommended_action", "No action required."))
+
+    st.write(
+        f"""
+        **Likely cause:**  
+        {decision.get('likely_cause', 'No issue detected.')}
+        """
+    )
+
+
+with tab5:
+    optimization = report.get("optimization_result", {})
+
+    st.markdown("### Optimization Recommendation")
+
+    if "optimization_result" in optimization:
+
+        opt = optimization["optimization_result"]
+
+        st.write(
+            f"""
+            - Optimal pump speed: **{opt.get('optimal_pump_speed', 0)}**
+            - Optimal aeration rate: **{opt.get('optimal_aeration_rate', 0)}**
+            - Optimal chemical dose: **{opt.get('optimal_chemical_dose', 0)}**
+            - Estimated operating cost: **{opt.get('estimated_operating_cost', 0)}**
+            """
+        )
+
+        st.success("Optimization analysis completed successfully.")
+
+    else:
+        st.info("No optimization recommendation required.")
 
     st.download_button(
         "Download Multi-Agent Report JSON",
