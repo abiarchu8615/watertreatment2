@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 import joblib
+import numpy as np
 import pandas as pd
 import plotly.express as px
 import streamlit as st
@@ -21,7 +22,8 @@ st.set_page_config(
 st.title("AI-Powered Digital Twin System for Smart Water Treatment Plants")
 st.write(
     "Prototype dashboard for predictive monitoring, leak detection, "
-    "water quality analysis, energy prediction, and industrial anomaly detection."
+    "water quality analysis, energy prediction, industrial anomaly detection, "
+    "failure trend prediction, and prescriptive maintenance actions."
 )
 
 
@@ -39,14 +41,26 @@ selected_page = st.sidebar.radio(
         "Leak Detection",
         "Energy Digital Twin",
         "Sensor Anomaly",
-        "AI Prediction Demo"
+        "AI Prediction Demo",
+        "Failure Trend Prediction",
+        "AI Chatbot"
     ]
 )
 
 
+# =========================
+# DATA + METRIC HELPERS
+# =========================
+
 @st.cache_data
 def load_csv(name, nrows=None):
-    df = pd.read_csv(DATA / name, nrows=nrows)
+    path = DATA / name
+
+    if not path.exists():
+        st.error(f"Missing file: {path}")
+        st.stop()
+
+    df = pd.read_csv(path, nrows=nrows)
     df.columns = df.columns.str.strip()
     return df
 
@@ -85,6 +99,13 @@ def show_regression_metrics(metrics, title="Regression Model Performance"):
 
     col1.metric("Mean Absolute Error", f"{metrics.get('mae', 0):.2f}")
     col2.metric("R² Score", f"{metrics.get('r2_score', 0):.2%}")
+
+
+def safe_dataframe(df, message="No records to display."):
+    if df is None or df.empty:
+        st.info(message)
+    else:
+        st.dataframe(df, use_container_width=True)
 
 
 # =========================
@@ -186,6 +207,1173 @@ def show_maintenance_decision(risk, action):
 
 
 # =========================
+# FAILURE TREND + PRESCRIPTIVE ENGINE
+# =========================
+
+def detect_failure_trend(
+    df,
+    time_col,
+    value_col,
+    warning_threshold=None,
+    failure_threshold=None,
+    direction="above",
+    window=10,
+    time_is_datetime=True
+):
+    work = df.copy()
+
+    if time_col not in work.columns:
+        raise ValueError(f"Missing time column: {time_col}")
+
+    if value_col not in work.columns:
+        raise ValueError(f"Missing value column: {value_col}")
+
+    if time_is_datetime:
+        work[time_col] = pd.to_datetime(work[time_col], errors="coerce")
+    else:
+        work[time_col] = pd.to_numeric(work[time_col], errors="coerce")
+
+    work[value_col] = pd.to_numeric(work[value_col], errors="coerce")
+
+    work = work.dropna(subset=[time_col, value_col])
+    work = work.sort_values(time_col).reset_index(drop=True)
+
+    if work.empty:
+        return work
+
+    window = max(2, min(int(window), len(work)))
+
+    work["rolling_mean"] = work[value_col].rolling(
+        window=window,
+        min_periods=1
+    ).mean()
+
+    work["rolling_std"] = work[value_col].rolling(
+        window=window,
+        min_periods=1
+    ).std().fillna(0)
+
+    work["trend_change"] = work["rolling_mean"].diff().fillna(0)
+    work["rate_of_change"] = work[value_col].diff().fillna(0)
+
+    if warning_threshold is None:
+        warning_threshold = work[value_col].quantile(0.80)
+
+    if failure_threshold is None:
+        failure_threshold = work[value_col].quantile(0.95)
+
+    if direction == "above":
+        work["warning_zone"] = work["rolling_mean"] >= warning_threshold
+        work["failure_zone"] = work["rolling_mean"] >= failure_threshold
+        work["moving_towards_failure"] = work["trend_change"] > 0
+    else:
+        work["warning_zone"] = work["rolling_mean"] <= warning_threshold
+        work["failure_zone"] = work["rolling_mean"] <= failure_threshold
+        work["moving_towards_failure"] = work["trend_change"] < 0
+
+    work["early_warning"] = (
+        work["warning_zone"]
+        & work["moving_towards_failure"]
+        & ~work["failure_zone"]
+    )
+
+    work["failure_detected"] = work["failure_zone"]
+
+    def status(row):
+        if row["failure_detected"]:
+            return "FAILURE"
+        if row["early_warning"]:
+            return "EARLY WARNING"
+        if row["warning_zone"]:
+            return "WATCH"
+        return "NORMAL"
+
+    work["failure_status"] = work.apply(status, axis=1)
+
+    return work
+
+
+
+def add_failure_severity_score(trend_df):
+    """
+    Adds operational severity score:
+    severity_score = abs(trend_change) * rolling_std * risk_probability
+    """
+
+    work = trend_df.copy()
+
+    if work.empty:
+        return work
+
+    max_abs_trend = work["trend_change"].abs().max()
+    max_std = work["rolling_std"].max()
+
+    if max_abs_trend == 0:
+        normalized_trend = 0
+    else:
+        normalized_trend = work["trend_change"].abs() / max_abs_trend
+
+    if max_std == 0:
+        normalized_std = 0
+    else:
+        normalized_std = work["rolling_std"] / max_std
+
+    status_probability = {
+        "NORMAL": 0.10,
+        "WATCH": 0.40,
+        "EARLY WARNING": 0.70,
+        "FAILURE": 1.00
+    }
+
+    work["risk_probability"] = work["failure_status"].map(
+        status_probability
+    ).fillna(0.10)
+
+    work["severity_score"] = (
+        normalized_trend
+        * normalized_std
+        * work["risk_probability"]
+    ).fillna(0)
+
+    def classify_severity(score):
+        if score >= 0.75:
+            return "CRITICAL"
+        if score >= 0.50:
+            return "HIGH"
+        if score >= 0.25:
+            return "MEDIUM"
+        return "LOW"
+
+    work["severity_level"] = work["severity_score"].apply(classify_severity)
+
+    return work
+
+
+def forecast_future_trend(
+    trend_df,
+    time_col,
+    value_col,
+    periods=10,
+    time_is_datetime=True
+):
+    """
+    Simple operational forecast using recent linear trend.
+    This gives near-future expected sensor direction.
+    """
+
+    work = trend_df.copy()
+
+    if work.empty or len(work) < 3:
+        return pd.DataFrame()
+
+    work = work.dropna(subset=[time_col, value_col]).copy()
+
+    if len(work) < 3:
+        return pd.DataFrame()
+
+    recent = work.tail(min(30, len(work))).copy()
+    recent["x"] = range(len(recent))
+
+    slope, intercept = np.polyfit(
+        recent["x"],
+        recent[value_col],
+        1
+    )
+
+    last_x = recent["x"].iloc[-1]
+    last_time = work[time_col].iloc[-1]
+
+    future_rows = []
+
+    for i in range(1, periods + 1):
+        future_x = last_x + i
+        forecast_value = slope * future_x + intercept
+
+        if time_is_datetime:
+            if len(work) >= 2:
+                time_step = work[time_col].diff().dropna().median()
+                if pd.isna(time_step):
+                    time_step = pd.Timedelta(days=1)
+            else:
+                time_step = pd.Timedelta(days=1)
+
+            future_time = last_time + (time_step * i)
+        else:
+            future_time = last_time + i
+
+        future_rows.append({
+            time_col: future_time,
+            f"forecast_{value_col}": forecast_value,
+            "forecast_step": i
+        })
+
+    return pd.DataFrame(future_rows)
+
+
+def show_forecast_chart(
+    trend_df,
+    forecast_df,
+    time_col,
+    value_col,
+    warning_threshold,
+    failure_threshold,
+    title
+):
+    if trend_df.empty:
+        st.info("No trend data available for forecasting.")
+        return
+
+    fig = px.line(
+        trend_df,
+        x=time_col,
+        y=value_col,
+        title=title
+    )
+
+    if not forecast_df.empty:
+        forecast_col = f"forecast_{value_col}"
+
+        forecast_fig = px.line(
+            forecast_df,
+            x=time_col,
+            y=forecast_col
+        )
+
+        for trace in forecast_fig.data:
+            trace.name = "Forecast Trend"
+            fig.add_trace(trace)
+
+    fig.add_hline(
+        y=warning_threshold,
+        line_dash="dash",
+        annotation_text="Warning Threshold"
+    )
+
+    fig.add_hline(
+        y=failure_threshold,
+        line_dash="dot",
+        annotation_text="Failure Threshold"
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+
+def show_severity_summary(trend_df):
+    if trend_df.empty or "severity_level" not in trend_df.columns:
+        return
+
+    latest = trend_df.iloc[-1]
+
+    st.subheader("Failure Severity Score")
+
+    c1, c2, c3 = st.columns(3)
+
+    c1.metric(
+        "Latest Severity Score",
+        f"{latest['severity_score']:.3f}"
+    )
+
+    c2.metric(
+        "Severity Level",
+        latest["severity_level"]
+    )
+
+    c3.metric(
+        "Risk Probability",
+        f"{latest['risk_probability']:.0%}"
+    )
+
+    severity_counts = (
+        trend_df["severity_level"]
+        .value_counts()
+        .reset_index()
+    )
+
+    severity_counts.columns = ["Severity Level", "Count"]
+
+    st.plotly_chart(
+        px.bar(
+            severity_counts,
+            x="Severity Level",
+            y="Count",
+            title="Severity Level Distribution"
+        ),
+        use_container_width=True
+    )
+
+
+def show_failure_trend_chart(
+    trend_df,
+    time_col,
+    value_col,
+    warning_threshold,
+    failure_threshold,
+    title
+):
+    if trend_df.empty:
+        st.info("No trend data available.")
+        return
+
+    fig = px.line(
+        trend_df,
+        x=time_col,
+        y=[value_col, "rolling_mean"],
+        title=title
+    )
+
+    fig.add_hline(
+        y=warning_threshold,
+        line_dash="dash",
+        annotation_text="Warning Threshold"
+    )
+
+    fig.add_hline(
+        y=failure_threshold,
+        line_dash="dot",
+        annotation_text="Failure Threshold"
+    )
+
+    warning_points = trend_df[
+        trend_df["failure_status"].isin(["EARLY WARNING", "FAILURE"])
+    ]
+
+    if not warning_points.empty:
+        fig_points = px.scatter(
+            warning_points,
+            x=time_col,
+            y=value_col,
+            color="failure_status",
+            hover_data=[
+                value_col,
+                "rolling_mean",
+                "trend_change",
+                "failure_status"
+            ]
+        )
+
+        for trace in fig_points.data:
+            fig.add_trace(trace)
+
+    st.plotly_chart(fig, use_container_width=True)
+
+
+def show_failure_summary(trend_df, time_col):
+    if trend_df.empty:
+        st.warning("No valid trend records found.")
+        return
+
+    total_watch = int((trend_df["failure_status"] == "WATCH").sum())
+    total_warning = int((trend_df["failure_status"] == "EARLY WARNING").sum())
+    total_failure = int((trend_df["failure_status"] == "FAILURE").sum())
+
+    first_warning = trend_df[
+        trend_df["failure_status"] == "EARLY WARNING"
+    ][time_col].min()
+
+    first_failure = trend_df[
+        trend_df["failure_status"] == "FAILURE"
+    ][time_col].min()
+
+    c1, c2, c3, c4 = st.columns(4)
+
+    c1.metric("Watch Points", total_watch)
+    c2.metric("Early Warning Points", total_warning)
+
+    if pd.notna(first_warning):
+        c3.metric("First Warning", str(first_warning))
+    else:
+        c3.metric("First Warning", "None")
+
+    if pd.notna(first_failure):
+        c4.metric("First Failure", str(first_failure))
+    else:
+        c4.metric("First Failure", "None")
+
+
+def get_failure_prevention_action(module, status):
+    if status == "NORMAL":
+        return "System is stable. Continue normal monitoring."
+
+    if module == "Water Quality":
+        return (
+            "Preventive action: check pH, turbidity, DO, BOD, dosing level, "
+            "and clean aeration/filtration units before water quality failure."
+        )
+
+    if module == "Leak Detection":
+        return (
+            "Preventive action: inspect pressure-drop zones, flow imbalance, "
+            "valves, joints, and vulnerable pipe sections before leak or burst."
+        )
+
+    if module == "Energy Digital Twin":
+        return (
+            "Preventive action: inspect pumps, motors, aerators, filter blockage, "
+            "and reschedule high-load operation before energy failure."
+        )
+
+    if module == "Sensor Anomaly":
+        return (
+            "Preventive action: recalibrate sensors, compare backup readings, "
+            "inspect network logs, and replace drifting sensors before failure."
+        )
+
+    return "Preventive action not available."
+
+
+def get_prescriptive_action(module, signal, status, latest_value, rolling_mean, direction):
+    """
+    Converts failure trend status into focused maintenance actions.
+    """
+
+    if status == "NORMAL":
+        return {
+            "priority": "LOW",
+            "timeframe": "Routine monitoring",
+            "owner": "Operations Team",
+            "likely_cause": "No abnormal degradation pattern detected.",
+            "action": "Continue normal monitoring and scheduled preventive maintenance.",
+            "focus_area": "Stable operation"
+        }
+
+    if status == "WATCH":
+        base_priority = "MEDIUM"
+        timeframe = "Inspect within 7 days"
+    elif status == "EARLY WARNING":
+        base_priority = "HIGH"
+        timeframe = "Inspect within 24-48 hours"
+    else:
+        base_priority = "CRITICAL"
+        timeframe = "Immediate intervention required"
+
+    if module == "Water Quality":
+        if signal == "pH":
+            cause = "Chemical imbalance, dosing instability, or influent quality change."
+            action = "Check chemical dosing system, calibrate pH probe, verify alkalinity, and inspect upstream inflow changes."
+            owner = "Water Quality / Process Engineer"
+            focus = "Chemical dosing and pH control"
+
+        elif signal == "Turbidity (NTU)":
+            cause = "Filter clogging, poor coagulation, high suspended solids, or sediment carryover."
+            action = "Inspect filters, backwash if required, check coagulant dosing, and verify clarifier performance."
+            owner = "Treatment Plant Operator"
+            focus = "Filtration and clarification"
+
+        elif signal == "DO (mg/L)":
+            cause = "Aeration inefficiency, blower issue, high organic load, or biological treatment stress."
+            action = "Inspect blowers, aerators, dissolved oxygen probes, and increase aeration if DO is trending unsafe."
+            owner = "Process / Maintenance Team"
+            focus = "Aeration and biological treatment"
+
+        elif signal == "BOD (mg/L)":
+            cause = "Organic load increase, biological treatment underperformance, or influent shock load."
+            action = "Check biological treatment health, sludge age, aeration levels, and upstream industrial discharge."
+            owner = "Process Engineer"
+            focus = "Organic load and biological treatment"
+
+        else:
+            cause = "Water quality parameter is trending toward abnormal condition."
+            action = "Inspect water quality sensors, treatment process controls, and dosing equipment."
+            owner = "Water Quality Team"
+            focus = "Water quality monitoring"
+
+    elif module == "Leak Detection":
+        if signal == "Pressure (bar)":
+            if direction == "below":
+                cause = "Pressure drop may indicate leak, valve opening, pump underperformance, or pipe rupture development."
+                action = "Inspect pipeline zones with pressure loss, check valves/joints, compare upstream/downstream pressure, and prepare leak isolation."
+            else:
+                cause = "Pressure spike may indicate blockage, valve restriction, pump surge, or burst risk."
+                action = "Reduce pump load, inspect blocked sections, check pressure relief valves, and verify surge protection."
+            owner = "Pipeline Maintenance Team"
+            focus = "Pressure integrity"
+
+        elif signal == "Flow Rate (L/s)":
+            cause = "Flow imbalance may indicate leakage, blockage, pump instability, or unauthorized discharge."
+            action = "Compare inlet/outlet flow balance, inspect pipe sections, check pumps, and validate flowmeter calibration."
+            owner = "Network Operations Team"
+            focus = "Flow balance"
+
+        elif signal == "Temperature (°C)":
+            cause = "Temperature drift may indicate sensor fault, environmental stress, or abnormal process condition."
+            action = "Validate temperature sensor, inspect exposed pipeline areas, and compare with nearby sensor readings."
+            owner = "Instrumentation Team"
+            focus = "Temperature and sensor validation"
+
+        else:
+            cause = "Leak-related signal is moving toward abnormal behaviour."
+            action = "Inspect leak-prone pipeline sections and validate sensor readings."
+            owner = "Maintenance Team"
+            focus = "Leak prevention"
+
+    elif module == "Energy Digital Twin":
+        cause = (
+            "Energy consumption is increasing beyond normal operating pattern, "
+            "possibly due to pump inefficiency, blockage, high inflow, or aeration overload."
+        )
+        action = (
+            "Inspect pump efficiency, clean filters/aerators, check inflow load, "
+            "reschedule high-energy operations, and verify motor condition."
+        )
+        owner = "Energy / Maintenance Engineer"
+        focus = "Energy optimization and equipment efficiency"
+
+    elif module == "Sensor Anomaly":
+        cause = "Sensor drift, calibration loss, communication issue, or cyber/attack-like abnormal pattern."
+        action = (
+            "Calibrate sensor, compare redundant sensor values, inspect PLC/network logs, "
+            "and replace unstable sensor if drift persists."
+        )
+        owner = "Instrumentation / OT Security Team"
+        focus = "Sensor reliability and anomaly control"
+
+    else:
+        cause = "Unknown degradation pattern."
+        action = "Investigate system condition and validate sensor data."
+        owner = "Operations Team"
+        focus = "General maintenance"
+
+    return {
+        "priority": base_priority,
+        "timeframe": timeframe,
+        "owner": owner,
+        "likely_cause": cause,
+        "action": action,
+        "focus_area": focus
+    }
+
+
+def show_prescriptive_action_card(action_plan):
+    st.subheader("Focused Prescriptive Action")
+
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Priority", action_plan["priority"])
+    c2.metric("Timeframe", action_plan["timeframe"])
+    c3.metric("Owner", action_plan["owner"])
+
+    if action_plan["priority"] == "CRITICAL":
+        st.error(action_plan["action"])
+    elif action_plan["priority"] == "HIGH":
+        st.warning(action_plan["action"])
+    elif action_plan["priority"] == "MEDIUM":
+        st.info(action_plan["action"])
+    else:
+        st.success(action_plan["action"])
+
+    st.write("**Likely Cause:**", action_plan["likely_cause"])
+    st.write("**Focus Area:**", action_plan["focus_area"])
+
+
+def build_prescriptive_action_table(trend_df, module, signal, direction, time_col, value_col):
+    if trend_df.empty:
+        return pd.DataFrame()
+
+    focus_df = trend_df[
+        trend_df["failure_status"].isin(["WATCH", "EARLY WARNING", "FAILURE"])
+    ].copy()
+
+    if focus_df.empty:
+        return pd.DataFrame(columns=[
+            time_col,
+            value_col,
+            "rolling_mean",
+            "trend_change",
+            "failure_status",
+            "priority",
+            "timeframe",
+            "owner",
+            "focus_area",
+            "likely_cause",
+            "prescriptive_action"
+        ])
+
+    action_rows = []
+
+    for _, row in focus_df.iterrows():
+        plan = get_prescriptive_action(
+            module=module,
+            signal=signal,
+            status=row["failure_status"],
+            latest_value=row[value_col],
+            rolling_mean=row["rolling_mean"],
+            direction=direction
+        )
+
+        action_rows.append({
+            time_col: row[time_col],
+            value_col: row[value_col],
+            "rolling_mean": row["rolling_mean"],
+            "trend_change": row["trend_change"],
+            "failure_status": row["failure_status"],
+            "priority": plan["priority"],
+            "timeframe": plan["timeframe"],
+            "owner": plan["owner"],
+            "focus_area": plan["focus_area"],
+            "likely_cause": plan["likely_cause"],
+            "prescriptive_action": plan["action"]
+        })
+
+    return pd.DataFrame(action_rows)
+
+
+def render_failure_outputs(
+    trend_df,
+    module_choice,
+    value_col,
+    direction,
+    time_col,
+    warning_threshold,
+    failure_threshold,
+    chart_title,
+    time_is_datetime=True
+):
+    trend_df = add_failure_severity_score(trend_df)
+
+    show_failure_summary(trend_df, time_col)
+
+    show_failure_trend_chart(
+        trend_df,
+        time_col,
+        value_col,
+        warning_threshold,
+        failure_threshold,
+        chart_title
+    )
+
+    show_severity_summary(trend_df)
+
+    forecast_periods = st.slider(
+        "Forecast future periods",
+        5,
+        50,
+        15
+    )
+
+    forecast_df = forecast_future_trend(
+        trend_df=trend_df,
+        time_col=time_col,
+        value_col=value_col,
+        periods=forecast_periods,
+        time_is_datetime=time_is_datetime
+    )
+
+    st.subheader("Forecast Future Trend")
+
+    show_forecast_chart(
+        trend_df=trend_df,
+        forecast_df=forecast_df,
+        time_col=time_col,
+        value_col=value_col,
+        warning_threshold=warning_threshold,
+        failure_threshold=failure_threshold,
+        title=f"{chart_title} + Future Forecast"
+    )
+
+    if not forecast_df.empty:
+        forecast_col = f"forecast_{value_col}"
+
+        forecast_df["forecast_warning"] = (
+            forecast_df[forecast_col] >= warning_threshold
+            if direction == "above"
+            else forecast_df[forecast_col] <= warning_threshold
+        )
+
+        forecast_df["forecast_failure"] = (
+            forecast_df[forecast_col] >= failure_threshold
+            if direction == "above"
+            else forecast_df[forecast_col] <= failure_threshold
+        )
+
+        first_forecast_warning = forecast_df[
+            forecast_df["forecast_warning"]
+        ][time_col].min()
+
+        first_forecast_failure = forecast_df[
+            forecast_df["forecast_failure"]
+        ][time_col].min()
+
+        c1, c2 = st.columns(2)
+
+        c1.metric(
+            "Forecast Warning Time",
+            str(first_forecast_warning)
+            if pd.notna(first_forecast_warning)
+            else "Not forecasted"
+        )
+
+        c2.metric(
+            "Forecast Failure Time",
+            str(first_forecast_failure)
+            if pd.notna(first_forecast_failure)
+            else "Not forecasted"
+        )
+
+        safe_dataframe(
+            forecast_df,
+            "No forecast records available."
+        )
+
+    latest_status = (
+        trend_df["failure_status"].iloc[-1]
+        if not trend_df.empty
+        else "NORMAL"
+    )
+
+    if not trend_df.empty:
+        latest_row = trend_df.iloc[-1]
+
+        action_plan = get_prescriptive_action(
+            module=module_choice,
+            signal=value_col,
+            status=latest_status,
+            latest_value=latest_row[value_col],
+            rolling_mean=latest_row["rolling_mean"],
+            direction=direction
+        )
+
+        show_prescriptive_action_card(action_plan)
+
+        action_table = build_prescriptive_action_table(
+            trend_df=trend_df,
+            module=module_choice,
+            signal=value_col,
+            direction=direction,
+            time_col=time_col,
+            value_col=value_col
+        )
+
+        if not action_table.empty and "severity_score" not in action_table.columns:
+            severity_cols = trend_df[
+                [
+                    time_col,
+                    "severity_score",
+                    "severity_level",
+                    "risk_probability"
+                ]
+            ]
+
+            action_table = action_table.merge(
+                severity_cols,
+                on=time_col,
+                how="left"
+            )
+
+        st.subheader("Prescriptive Action Timeline")
+        safe_dataframe(action_table, "No prescriptive action required at this stage.")
+
+    st.warning(get_failure_prevention_action(module_choice, latest_status))
+
+    failure_table = trend_df[
+        trend_df["failure_status"].isin(["EARLY WARNING", "FAILURE"])
+    ][
+        [
+            time_col,
+            value_col,
+            "rolling_mean",
+            "trend_change",
+            "rolling_std",
+            "risk_probability",
+            "severity_score",
+            "severity_level",
+            "failure_status"
+        ]
+    ] if not trend_df.empty else pd.DataFrame()
+
+    st.subheader("Early Warning / Failure Records")
+    safe_dataframe(failure_table, "No early warning or failure trend detected.")
+
+
+
+# =========================
+# AI CHATBOT ENGINE
+# =========================
+
+def summarize_dataframe_for_chat(df, module_name):
+    summary = {
+        "module": module_name,
+        "rows": len(df),
+        "columns": list(df.columns)
+    }
+
+    numeric_cols = df.select_dtypes(include="number").columns.tolist()
+
+    if numeric_cols:
+        summary["numeric_summary"] = (
+            df[numeric_cols]
+            .describe()
+            .round(3)
+            .to_dict()
+        )
+
+    return summary
+
+
+def get_module_dataframe(module_name):
+    if module_name == "Water Quality":
+        df = load_csv("Water_Quality_Dataset.csv")
+        df["Timestamp"] = pd.to_datetime(df["Timestamp"], errors="coerce")
+        return df
+
+    if module_name == "Leak Detection":
+        df = load_csv("water_leak_detection_1000_rows.csv")
+        df["Timestamp"] = pd.to_datetime(df["Timestamp"], errors="coerce")
+        return df
+
+    if module_name == "Energy Digital Twin":
+        df = load_csv("Data-Melbourne_F_fixed.csv")
+        df["Date"] = pd.to_datetime(
+            dict(
+                year=df["Year"].astype(int),
+                month=df["Month"].astype(int),
+                day=df["Day"].astype(int)
+            ),
+            errors="coerce"
+        )
+        return df
+
+    if module_name == "Sensor Anomaly":
+        df = load_csv("merged_sample.csv", nrows=200000)
+        return df
+
+    return pd.DataFrame()
+
+
+def chatbot_intent(user_query):
+    q = user_query.lower()
+
+    if any(word in q for word in ["failure", "fail", "breakdown", "when"]):
+        return "failure_trend"
+
+    if any(word in q for word in ["severity", "critical", "risk score", "priority"]):
+        return "severity"
+
+    if any(word in q for word in ["prevent", "prescriptive", "action", "maintenance", "recommend"]):
+        return "prescriptive"
+
+    if any(word in q for word in ["summary", "overview", "status"]):
+        return "summary"
+
+    if any(word in q for word in ["leak", "burst", "pressure", "flow"]):
+        return "leak"
+
+    if any(word in q for word in ["energy", "pump", "motor", "consumption"]):
+        return "energy"
+
+    if any(word in q for word in ["water", "quality", "ph", "turbidity", "bod", "do"]):
+        return "water"
+
+    if any(word in q for word in ["sensor", "anomaly", "attack", "drift"]):
+        return "sensor"
+
+    return "general"
+
+
+def choose_signal_for_module(module_name, user_query):
+    q = user_query.lower()
+
+    if module_name == "Water Quality":
+        if "ph" in q:
+            return "pH", "above"
+        if "turbidity" in q:
+            return "Turbidity (NTU)", "above"
+        if "do" in q or "dissolved oxygen" in q:
+            return "DO (mg/L)", "below"
+        if "bod" in q:
+            return "BOD (mg/L)", "above"
+        return "Turbidity (NTU)", "above"
+
+    if module_name == "Leak Detection":
+        if "flow" in q:
+            return "Flow Rate (L/s)", "above"
+        if "temperature" in q:
+            return "Temperature (°C)", "above"
+        return "Pressure (bar)", "below"
+
+    if module_name == "Energy Digital Twin":
+        return "Energy Consumption", "above"
+
+    if module_name == "Sensor Anomaly":
+        df = get_module_dataframe("Sensor Anomaly")
+        numeric_cols = df.select_dtypes(include="number").columns.tolist()
+        return numeric_cols[0] if numeric_cols else None, "above"
+
+    return None, "above"
+
+
+def run_chatbot_failure_analysis(module_name, signal, direction, window=10, forecast_periods=15):
+    df = get_module_dataframe(module_name)
+
+    if df.empty or signal is None:
+        return None, None, None, "No data available for this module."
+
+    if module_name in ["Water Quality", "Leak Detection"]:
+        time_col = "Timestamp"
+        time_is_datetime = True
+
+    elif module_name == "Energy Digital Twin":
+        time_col = "Date"
+        time_is_datetime = True
+
+    else:
+        df = df.reset_index(drop=True)
+        df["Trend_Index"] = df.index
+        time_col = "Trend_Index"
+        time_is_datetime = False
+
+    if signal not in df.columns:
+        return None, None, None, f"Signal `{signal}` not found in {module_name} data."
+
+    if direction == "above":
+        warning_threshold = df[signal].quantile(0.80)
+        failure_threshold = df[signal].quantile(0.95)
+    else:
+        warning_threshold = df[signal].quantile(0.20)
+        failure_threshold = df[signal].quantile(0.05)
+
+    trend_df = detect_failure_trend(
+        df=df,
+        time_col=time_col,
+        value_col=signal,
+        warning_threshold=warning_threshold,
+        failure_threshold=failure_threshold,
+        direction=direction,
+        window=window,
+        time_is_datetime=time_is_datetime
+    )
+
+    trend_df = add_failure_severity_score(trend_df)
+
+    forecast_df = forecast_future_trend(
+        trend_df=trend_df,
+        time_col=time_col,
+        value_col=signal,
+        periods=forecast_periods,
+        time_is_datetime=time_is_datetime
+    )
+
+    if not forecast_df.empty:
+        forecast_col = f"forecast_{signal}"
+
+        forecast_df["forecast_warning"] = (
+            forecast_df[forecast_col] >= warning_threshold
+            if direction == "above"
+            else forecast_df[forecast_col] <= warning_threshold
+        )
+
+        forecast_df["forecast_failure"] = (
+            forecast_df[forecast_col] >= failure_threshold
+            if direction == "above"
+            else forecast_df[forecast_col] <= failure_threshold
+        )
+
+    meta = {
+        "time_col": time_col,
+        "time_is_datetime": time_is_datetime,
+        "warning_threshold": warning_threshold,
+        "failure_threshold": failure_threshold,
+        "direction": direction,
+        "signal": signal,
+        "module": module_name
+    }
+
+    return trend_df, forecast_df, meta, None
+
+
+def generate_chatbot_response(user_query, module_name):
+    intent = chatbot_intent(user_query)
+
+    if intent in ["water"]:
+        module_name = "Water Quality"
+    elif intent in ["leak"]:
+        module_name = "Leak Detection"
+    elif intent in ["energy"]:
+        module_name = "Energy Digital Twin"
+    elif intent in ["sensor"]:
+        module_name = "Sensor Anomaly"
+
+    signal, direction = choose_signal_for_module(module_name, user_query)
+
+    if intent in ["failure_trend", "severity", "prescriptive", "water", "leak", "energy", "sensor"]:
+        trend_df, forecast_df, meta, error = run_chatbot_failure_analysis(
+            module_name=module_name,
+            signal=signal,
+            direction=direction
+        )
+
+        if error:
+            return error, None, None, None
+
+        latest = trend_df.iloc[-1] if not trend_df.empty else None
+
+        if latest is None:
+            return "No valid trend records were found.", None, None, None
+
+        latest_status = latest["failure_status"]
+        severity_level = latest["severity_level"]
+        severity_score = latest["severity_score"]
+        risk_probability = latest["risk_probability"]
+
+        forecast_warning = "Not forecasted"
+        forecast_failure = "Not forecasted"
+
+        if forecast_df is not None and not forecast_df.empty:
+            first_warning = forecast_df[
+                forecast_df["forecast_warning"]
+            ][meta["time_col"]].min()
+
+            first_failure = forecast_df[
+                forecast_df["forecast_failure"]
+            ][meta["time_col"]].min()
+
+            if pd.notna(first_warning):
+                forecast_warning = str(first_warning)
+
+            if pd.notna(first_failure):
+                forecast_failure = str(first_failure)
+
+        action_plan = get_prescriptive_action(
+            module=module_name,
+            signal=signal,
+            status=latest_status,
+            latest_value=latest[signal],
+            rolling_mean=latest["rolling_mean"],
+            direction=direction
+        )
+
+        response = f"""
+### AI Chatbot Analysis
+
+**Module:** {module_name}  
+**Signal analysed:** {signal}  
+**Current status:** {latest_status}  
+**Severity level:** {severity_level}  
+**Severity score:** {severity_score:.3f}  
+**Risk probability:** {risk_probability:.0%}  
+
+**Forecast warning time:** {forecast_warning}  
+**Forecast failure time:** {forecast_failure}  
+
+### Focused prescriptive action
+
+**Priority:** {action_plan["priority"]}  
+**Timeframe:** {action_plan["timeframe"]}  
+**Owner:** {action_plan["owner"]}  
+**Likely cause:** {action_plan["likely_cause"]}  
+
+**Recommended action:**  
+{action_plan["action"]}
+"""
+
+        return response, trend_df, forecast_df, meta
+
+    if intent == "summary":
+        df = get_module_dataframe(module_name)
+        summary = summarize_dataframe_for_chat(df, module_name)
+
+        response = f"""
+### Dataset Summary
+
+**Module:** {module_name}  
+**Rows:** {summary["rows"]}  
+**Columns:** {len(summary["columns"])}  
+
+Ask me things like:
+- When will pressure fail?
+- What is the severity for energy?
+- What preventive action should I take?
+- Which water quality signal is risky?
+"""
+        return response, None, None, None
+
+    response = """
+### AI Chatbot Help
+
+You can ask me:
+
+- **When will pressure fail?**
+- **Show energy severity**
+- **What preventive action is needed?**
+- **Is turbidity moving toward failure?**
+- **What is the forecast failure time?**
+- **What is the risk probability?**
+- **What should the maintenance team do?**
+"""
+    return response, None, None, None
+
+
+def render_ai_chatbot_page():
+    st.subheader("AI Chatbot for Predictive Maintenance")
+
+    st.write(
+        "Ask questions about failure trends, severity, forecast failure time, "
+        "risk probability, and prescriptive maintenance actions."
+    )
+
+    selected_chat_module = st.selectbox(
+        "Default module for chatbot",
+        [
+            "Water Quality",
+            "Leak Detection",
+            "Energy Digital Twin",
+            "Sensor Anomaly"
+        ]
+    )
+
+    if "ai_chat_messages" not in st.session_state:
+        st.session_state.ai_chat_messages = []
+
+    for message in st.session_state.ai_chat_messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+
+    user_query = st.chat_input(
+        "Ask: When will pressure fail? What action should I take?"
+    )
+
+    if user_query:
+        st.session_state.ai_chat_messages.append(
+            {"role": "user", "content": user_query}
+        )
+
+        response, trend_df, forecast_df, meta = generate_chatbot_response(
+            user_query=user_query,
+            module_name=selected_chat_module
+        )
+
+        st.session_state.ai_chat_messages.append(
+            {"role": "assistant", "content": response}
+        )
+
+        with st.chat_message("user"):
+            st.markdown(user_query)
+
+        with st.chat_message("assistant"):
+            st.markdown(response)
+
+        if trend_df is not None and meta is not None:
+            show_failure_trend_chart(
+                trend_df=trend_df,
+                time_col=meta["time_col"],
+                value_col=meta["signal"],
+                warning_threshold=meta["warning_threshold"],
+                failure_threshold=meta["failure_threshold"],
+                title=f"Chatbot Trend Analysis: {meta['signal']}"
+            )
+
+        if forecast_df is not None and meta is not None:
+            show_forecast_chart(
+                trend_df=trend_df,
+                forecast_df=forecast_df,
+                time_col=meta["time_col"],
+                value_col=meta["signal"],
+                warning_threshold=meta["warning_threshold"],
+                failure_threshold=meta["failure_threshold"],
+                title=f"Chatbot Forecast: {meta['signal']}"
+            )
+
+
+
+# =========================
 # OVERVIEW PAGE
 # =========================
 
@@ -224,7 +1412,7 @@ if selected_page == "Overview":
 
     ### Predictive Maintenance Workflow
 
-    Sensor Data → AI Prediction → Risk Detection → Maintenance Decision
+    Sensor Data → AI Prediction → Risk Detection → Maintenance Decision → Failure Trend → Prescriptive Action
     """)
 
 
@@ -662,3 +1850,228 @@ if selected_page == "AI Prediction Demo":
         else:
             st.warning("Train models first using: python train_models.py")
 
+
+# =========================
+# FAILURE TREND PREDICTION PAGE
+# =========================
+
+if selected_page == "Failure Trend Prediction":
+
+    st.subheader("Failure Trend Prediction Before Breakdown")
+
+    module_choice = st.selectbox(
+        "Choose system module",
+        [
+            "Water Quality",
+            "Leak Detection",
+            "Energy Digital Twin",
+            "Sensor Anomaly"
+        ]
+    )
+
+    if module_choice == "Water Quality":
+
+        df = load_csv("Water_Quality_Dataset.csv")
+        df["Timestamp"] = pd.to_datetime(df["Timestamp"], errors="coerce")
+
+        value_col = st.selectbox(
+            "Choose water quality signal",
+            [
+                "pH",
+                "Turbidity (NTU)",
+                "DO (mg/L)",
+                "BOD (mg/L)"
+            ]
+        )
+
+        direction = st.selectbox(
+            "Failure direction",
+            ["above", "below"],
+            index=0
+        )
+
+        window = st.slider("Rolling window", 3, 30, 10)
+
+        if direction == "above":
+            warning_threshold = df[value_col].quantile(0.80)
+            failure_threshold = df[value_col].quantile(0.95)
+        else:
+            warning_threshold = df[value_col].quantile(0.20)
+            failure_threshold = df[value_col].quantile(0.05)
+
+        trend_df = detect_failure_trend(
+            df=df,
+            time_col="Timestamp",
+            value_col=value_col,
+            warning_threshold=warning_threshold,
+            failure_threshold=failure_threshold,
+            direction=direction,
+            window=window
+        )
+
+        render_failure_outputs(
+            trend_df=trend_df,
+            module_choice=module_choice,
+            value_col=value_col,
+            direction=direction,
+            time_col="Timestamp",
+            warning_threshold=warning_threshold,
+            failure_threshold=failure_threshold,
+            chart_title=f"{value_col} Failure Trend"
+        )
+
+    elif module_choice == "Leak Detection":
+
+        df = load_csv("water_leak_detection_1000_rows.csv")
+        df["Timestamp"] = pd.to_datetime(df["Timestamp"], errors="coerce")
+
+        value_col = st.selectbox(
+            "Choose leak signal",
+            [
+                "Pressure (bar)",
+                "Flow Rate (L/s)",
+                "Temperature (°C)"
+            ]
+        )
+
+        direction = st.selectbox(
+            "Failure direction",
+            ["below", "above"],
+            index=0
+        )
+
+        window = st.slider("Rolling window", 3, 30, 10)
+
+        if direction == "above":
+            warning_threshold = df[value_col].quantile(0.80)
+            failure_threshold = df[value_col].quantile(0.95)
+        else:
+            warning_threshold = df[value_col].quantile(0.20)
+            failure_threshold = df[value_col].quantile(0.05)
+
+        trend_df = detect_failure_trend(
+            df=df,
+            time_col="Timestamp",
+            value_col=value_col,
+            warning_threshold=warning_threshold,
+            failure_threshold=failure_threshold,
+            direction=direction,
+            window=window
+        )
+
+        render_failure_outputs(
+            trend_df=trend_df,
+            module_choice=module_choice,
+            value_col=value_col,
+            direction=direction,
+            time_col="Timestamp",
+            warning_threshold=warning_threshold,
+            failure_threshold=failure_threshold,
+            chart_title=f"{value_col} Leak/Burst Failure Trend"
+        )
+
+    elif module_choice == "Energy Digital Twin":
+
+        df = load_csv("Data-Melbourne_F_fixed.csv")
+
+        df["Date"] = pd.to_datetime(
+            dict(
+                year=df["Year"].astype(int),
+                month=df["Month"].astype(int),
+                day=df["Day"].astype(int)
+            ),
+            errors="coerce"
+        )
+
+        value_col = "Energy Consumption"
+        direction = "above"
+        window = st.slider("Rolling window", 3, 30, 10)
+
+        warning_threshold = df[value_col].quantile(0.80)
+        failure_threshold = df[value_col].quantile(0.95)
+
+        trend_df = detect_failure_trend(
+            df=df,
+            time_col="Date",
+            value_col=value_col,
+            warning_threshold=warning_threshold,
+            failure_threshold=failure_threshold,
+            direction=direction,
+            window=window
+        )
+
+        render_failure_outputs(
+            trend_df=trend_df,
+            module_choice=module_choice,
+            value_col=value_col,
+            direction=direction,
+            time_col="Date",
+            warning_threshold=warning_threshold,
+            failure_threshold=failure_threshold,
+            chart_title="Energy Consumption Failure Trend"
+        )
+
+    elif module_choice == "Sensor Anomaly":
+
+        df = load_csv("merged_sample.csv", nrows=200000)
+
+        numeric_cols = df.select_dtypes(include="number").columns.tolist()
+
+        if not numeric_cols:
+            st.error("No numeric sensor columns found.")
+            st.stop()
+
+        value_col = st.selectbox(
+            "Choose sensor signal",
+            numeric_cols
+        )
+
+        direction = st.selectbox(
+            "Failure direction",
+            ["above", "below"],
+            index=0
+        )
+
+        window = st.slider("Rolling window", 3, 50, 15)
+
+        df = df.reset_index(drop=True)
+        df["Trend_Index"] = df.index
+
+        if direction == "above":
+            warning_threshold = df[value_col].quantile(0.80)
+            failure_threshold = df[value_col].quantile(0.95)
+        else:
+            warning_threshold = df[value_col].quantile(0.20)
+            failure_threshold = df[value_col].quantile(0.05)
+
+        trend_df = detect_failure_trend(
+            df=df,
+            time_col="Trend_Index",
+            value_col=value_col,
+            warning_threshold=warning_threshold,
+            failure_threshold=failure_threshold,
+            direction=direction,
+            window=window,
+            time_is_datetime=False
+        )
+
+        render_failure_outputs(
+            trend_df=trend_df,
+            module_choice=module_choice,
+            value_col=value_col,
+            direction=direction,
+            time_col="Trend_Index",
+            warning_threshold=warning_threshold,
+            failure_threshold=failure_threshold,
+            chart_title=f"{value_col} Sensor Failure Trend",
+            time_is_datetime=False
+        )
+
+
+
+# =========================
+# AI CHATBOT PAGE
+# =========================
+
+if selected_page == "AI Chatbot":
+    render_ai_chatbot_page()
