@@ -1276,6 +1276,339 @@ def build_all_maintenance_tickets(trend_df, module_choice, value_col, direction,
 
 
 
+
+# =========================
+# OPERATIONS COPILOT ENGINE
+# =========================
+
+def detect_copilot_intent(user_query):
+    q = user_query.lower()
+
+    if any(word in q for word in ["why", "cause", "caused", "root cause", "reason"]):
+        return "root_cause"
+
+    if any(word in q for word in ["most risky", "riskiest", "highest risk", "critical asset", "which asset"]):
+        return "riskiest_asset"
+
+    if any(word in q for word in ["last week", "instability", "unstable", "variation", "fluctuation"]):
+        return "instability"
+
+    if any(word in q for word in ["maintenance plan", "recommend plan", "action plan", "schedule maintenance"]):
+        return "maintenance_plan"
+
+    if any(word in q for word in ["energy increasing", "energy increase", "energy high", "power increasing"]):
+        return "energy_root_cause"
+
+    return None
+
+
+def get_signal_candidates_for_module(module_name):
+    if module_name == "Water Quality":
+        return [
+            ("pH", "above"),
+            ("Turbidity (NTU)", "above"),
+            ("DO (mg/L)", "below"),
+            ("BOD (mg/L)", "above")
+        ]
+
+    if module_name == "Leak Detection":
+        return [
+            ("Pressure (bar)", "below"),
+            ("Flow Rate (L/s)", "above"),
+            ("Temperature (°C)", "above")
+        ]
+
+    if module_name == "Energy Digital Twin":
+        return [
+            ("Energy Consumption", "above")
+        ]
+
+    if module_name == "Sensor Anomaly":
+        df = get_module_dataframe("Sensor Anomaly")
+        numeric_cols = df.select_dtypes(include="number").columns.tolist()
+        return [(col, "above") for col in numeric_cols[:10]]
+
+    return []
+
+
+def analyse_all_module_signals(module_name):
+    results = []
+
+    for signal, direction in get_signal_candidates_for_module(module_name):
+        trend_df, forecast_df, meta, error = run_chatbot_failure_analysis(
+            module_name=module_name,
+            signal=signal,
+            direction=direction
+        )
+
+        if error or trend_df is None or trend_df.empty:
+            continue
+
+        latest = trend_df.iloc[-1]
+
+        forecast_warning = "Not forecasted"
+        forecast_failure = "Not forecasted"
+
+        if forecast_df is not None and not forecast_df.empty:
+            time_col = meta["time_col"]
+
+            fw = forecast_df[
+                forecast_df.get("forecast_warning", False)
+            ][time_col].min() if "forecast_warning" in forecast_df else None
+
+            ff = forecast_df[
+                forecast_df.get("forecast_failure", False)
+            ][time_col].min() if "forecast_failure" in forecast_df else None
+
+            if pd.notna(fw):
+                forecast_warning = str(fw)
+
+            if pd.notna(ff):
+                forecast_failure = str(ff)
+
+        action_plan = get_prescriptive_action(
+            module=module_name,
+            signal=signal,
+            status=latest["failure_status"],
+            latest_value=latest[signal],
+            rolling_mean=latest["rolling_mean"],
+            direction=direction
+        )
+
+        ticket = generate_maintenance_ticket(
+            module=module_name,
+            signal=signal,
+            latest_status=latest["failure_status"],
+            severity_level=latest["severity_level"],
+            severity_score=latest["severity_score"],
+            risk_probability=latest["risk_probability"],
+            forecast_warning_time=forecast_warning,
+            forecast_failure_time=forecast_failure,
+            action_plan=action_plan
+        )
+
+        results.append({
+            "module": module_name,
+            "signal": signal,
+            "direction": direction,
+            "failure_status": latest["failure_status"],
+            "severity_level": latest["severity_level"],
+            "severity_score": float(latest["severity_score"]),
+            "risk_probability": float(latest["risk_probability"]),
+            "latest_value": float(latest[signal]),
+            "rolling_mean": float(latest["rolling_mean"]),
+            "trend_change": float(latest["trend_change"]),
+            "rolling_std": float(latest["rolling_std"]),
+            "forecast_warning_time": forecast_warning,
+            "forecast_failure_time": forecast_failure,
+            "likely_cause": action_plan["likely_cause"],
+            "recommended_action": action_plan["action"],
+            "owner": action_plan["owner"],
+            "priority": ticket["priority"],
+            "technician_assignment": ticket["technician_assignment"],
+            "required_spare_parts": ticket["required_spare_parts"],
+            "estimated_downtime_hours": ticket["estimated_downtime_hours"],
+            "due_time": ticket["due_time"],
+            "ticket_id": ticket["ticket_id"]
+        })
+
+    if not results:
+        return pd.DataFrame()
+
+    return pd.DataFrame(results).sort_values(
+        ["severity_score", "risk_probability"],
+        ascending=False
+    )
+
+
+def analyse_all_system_risk():
+    frames = []
+
+    for module_name in [
+        "Water Quality",
+        "Leak Detection",
+        "Energy Digital Twin",
+        "Sensor Anomaly"
+    ]:
+        result = analyse_all_module_signals(module_name)
+        if not result.empty:
+            frames.append(result)
+
+    if not frames:
+        return pd.DataFrame()
+
+    return pd.concat(frames, ignore_index=True).sort_values(
+        ["severity_score", "risk_probability"],
+        ascending=False
+    )
+
+
+def generate_root_cause_explanation(row):
+    signal = row["signal"]
+    module = row["module"]
+    trend_change = row["trend_change"]
+    rolling_std = row["rolling_std"]
+    severity = row["severity_level"]
+
+    explanation = f"""
+**Root-cause interpretation**
+
+The most relevant signal is **{signal}** in **{module}**.
+
+- Current severity: **{severity}**
+- Trend change: **{trend_change:.3f}**
+- Instability / rolling variation: **{rolling_std:.3f}**
+- Failure status: **{row["failure_status"]}**
+
+Likely cause:
+{row["likely_cause"]}
+
+Why this matters:
+The signal is showing a degradation pattern. A higher trend change means the condition is changing quickly. A higher rolling variation means the system is unstable. Together, these indicate that the asset/process may be moving toward failure.
+"""
+    return explanation
+
+
+def generate_maintenance_plan(risk_df, top_n=5):
+    if risk_df.empty:
+        return "No maintenance plan generated because no risk signals were detected.", pd.DataFrame()
+
+    plan = risk_df.head(top_n).copy()
+
+    response_lines = ["### Recommended Maintenance Plan"]
+
+    for i, row in plan.iterrows():
+        response_lines.append(
+            f"""
+**{len(response_lines)}. {row['module']} - {row['signal']}**
+- Priority: **{row['priority']}**
+- Severity: **{row['severity_level']}** ({row['severity_score']:.3f})
+- Technician: **{row['technician_assignment']}**
+- Due time: **{row['due_time']}**
+- Estimated downtime: **{row['estimated_downtime_hours']} hours**
+- Required spare parts: {row['required_spare_parts']}
+- Action: {row['recommended_action']}
+"""
+        )
+
+    return "\n".join(response_lines), plan
+
+
+def generate_operations_copilot_response(user_query, default_module):
+    intent = detect_copilot_intent(user_query)
+
+    if intent is None:
+        return None, None
+
+    if intent == "energy_root_cause":
+        risk_df = analyse_all_module_signals("Energy Digital Twin")
+
+        if risk_df.empty:
+            return "I could not analyse energy root cause because no energy trend data was available.", None
+
+        top = risk_df.iloc[0]
+        response = f"""
+### Why is energy increasing?
+
+The strongest energy-related signal is **{top['signal']}**.
+
+{generate_root_cause_explanation(top)}
+
+### Recommended action
+{top['recommended_action']}
+
+### Maintenance ownership
+- Owner: **{top['owner']}**
+- Technician assignment: **{top['technician_assignment']}**
+- Required spare parts: {top['required_spare_parts']}
+- Estimated downtime: **{top['estimated_downtime_hours']} hours**
+"""
+        return response, risk_df
+
+    if intent == "riskiest_asset":
+        risk_df = analyse_all_system_risk()
+
+        if risk_df.empty:
+            return "No risky asset or signal was detected from the available data.", None
+
+        top = risk_df.iloc[0]
+
+        response = f"""
+### Most Risky Asset / Signal
+
+The most risky signal is:
+
+**{top['module']} - {top['signal']}**
+
+- Severity: **{top['severity_level']}**
+- Severity score: **{top['severity_score']:.3f}**
+- Risk probability: **{top['risk_probability']:.0%}**
+- Failure status: **{top['failure_status']}**
+- Forecast warning time: **{top['forecast_warning_time']}**
+- Forecast failure time: **{top['forecast_failure_time']}**
+
+{generate_root_cause_explanation(top)}
+
+### Recommended maintenance
+{top['recommended_action']}
+"""
+        return response, risk_df.head(10)
+
+    if intent == "instability":
+        risk_df = analyse_all_system_risk()
+
+        if risk_df.empty:
+            return "No instability pattern was detected from the available data.", None
+
+        unstable = risk_df.sort_values("rolling_std", ascending=False).head(10)
+        top = unstable.iloc[0]
+
+        response = f"""
+### What caused the instability?
+
+The highest instability is observed in:
+
+**{top['module']} - {top['signal']}**
+
+- Rolling variation: **{top['rolling_std']:.3f}**
+- Trend change: **{top['trend_change']:.3f}**
+- Severity: **{top['severity_level']}**
+- Failure status: **{top['failure_status']}**
+
+Likely cause:
+{top['likely_cause']}
+
+### Recommended action
+{top['recommended_action']}
+"""
+        return response, unstable
+
+    if intent == "maintenance_plan":
+        risk_df = analyse_all_system_risk()
+        response, plan = generate_maintenance_plan(risk_df)
+        return response, plan
+
+    if intent == "root_cause":
+        risk_df = analyse_all_module_signals(default_module)
+
+        if risk_df.empty:
+            return "No root-cause result was found for the selected module.", None
+
+        top = risk_df.iloc[0]
+        response = f"""
+### Root Cause Analysis
+
+{generate_root_cause_explanation(top)}
+
+### Prescriptive action
+{top['recommended_action']}
+"""
+        return response, risk_df.head(10)
+
+    return None, None
+
+
+
 # =========================
 # AI CHATBOT ENGINE
 # =========================
@@ -1472,6 +1805,14 @@ def run_chatbot_failure_analysis(module_name, signal, direction, window=10, fore
 
 
 def generate_chatbot_response(user_query, module_name):
+    copilot_response, copilot_table = generate_operations_copilot_response(
+        user_query=user_query,
+        default_module=module_name
+    )
+
+    if copilot_response is not None:
+        return copilot_response, copilot_table, None, None
+
     intent = chatbot_intent(user_query)
 
     if intent in ["water"]:
@@ -1597,8 +1938,8 @@ def render_ai_chatbot_page():
     st.subheader("AI Chatbot for Predictive Maintenance")
 
     st.write(
-        "Ask questions about failure trends, severity, forecast failure time, "
-        "risk probability, and prescriptive maintenance actions."
+        "Ask questions about root cause, failure trends, severity, forecast failure time, "
+        "risk probability, autonomous tickets, and maintenance planning."
     )
 
     selected_chat_module = st.selectbox(
@@ -1619,7 +1960,7 @@ def render_ai_chatbot_page():
             st.markdown(message["content"])
 
     user_query = st.chat_input(
-        "Ask: When will pressure fail? What action should I take?"
+        "Ask: Why is energy increasing? Which asset is most risky? Recommend maintenance plan."
     )
 
     if user_query:
@@ -1641,6 +1982,18 @@ def render_ai_chatbot_page():
 
         with st.chat_message("assistant"):
             st.markdown(response)
+
+        if trend_df is not None and meta is None:
+            st.subheader("Operations Copilot Supporting Table")
+            safe_dataframe(trend_df, "No supporting table available.")
+
+            if isinstance(trend_df, pd.DataFrame) and not trend_df.empty:
+                st.download_button(
+                    "Download Copilot Analysis CSV",
+                    data=trend_df.to_csv(index=False),
+                    file_name="operations_copilot_analysis.csv",
+                    mime="text/csv"
+                )
 
         if trend_df is not None and meta is not None:
             show_failure_trend_chart(
