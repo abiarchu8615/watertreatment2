@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from datetime import datetime, timedelta
 
 import joblib
 import numpy as np
@@ -961,6 +962,42 @@ def render_failure_outputs(
         st.subheader("Prescriptive Action Timeline")
         safe_dataframe(action_table, "No prescriptive action required at this stage.")
 
+    meta = {
+        "time_col": time_col
+    }
+
+    if not trend_df.empty:
+        ticket = create_ticket_from_trend(
+            trend_df=trend_df,
+            forecast_df=forecast_df,
+            meta=meta,
+            module_choice=module_choice,
+            value_col=value_col,
+            direction=direction
+        )
+
+        if ticket is not None:
+            show_maintenance_ticket(ticket)
+
+        all_tickets = build_all_maintenance_tickets(
+            trend_df=trend_df,
+            module_choice=module_choice,
+            value_col=value_col,
+            direction=direction,
+            time_col=time_col
+        )
+
+        st.subheader("Maintenance Ticket Backlog")
+        safe_dataframe(all_tickets, "No maintenance tickets generated.")
+
+        if not all_tickets.empty:
+            st.download_button(
+                "Download Full Maintenance Ticket Backlog CSV",
+                data=all_tickets.to_csv(index=False),
+                file_name="maintenance_ticket_backlog.csv",
+                mime="text/csv"
+            )
+
     st.warning(get_failure_prevention_action(module_choice, latest_status))
 
     failure_table = trend_df[
@@ -981,6 +1018,261 @@ def render_failure_outputs(
 
     st.subheader("Early Warning / Failure Records")
     safe_dataframe(failure_table, "No early warning or failure trend detected.")
+
+
+
+
+# =========================
+# AUTONOMOUS MAINTENANCE SCHEDULER
+# =========================
+
+def get_spare_parts(module, signal, severity_level):
+    if severity_level == "LOW":
+        urgency_parts = ["No immediate spare parts required"]
+    else:
+        urgency_parts = ["Basic maintenance kit", "Sensor calibration kit"]
+
+    if module == "Water Quality":
+        if signal == "pH":
+            return urgency_parts + ["pH probe", "Buffer calibration solution", "Chemical dosing pump service kit"]
+        if signal == "Turbidity (NTU)":
+            return urgency_parts + ["Turbidity sensor cleaning kit", "Filter media", "Coagulant dosing pump spare"]
+        if signal == "DO (mg/L)":
+            return urgency_parts + ["DO probe membrane kit", "Aerator diffuser", "Blower filter", "Blower belt"]
+        if signal == "BOD (mg/L)":
+            return urgency_parts + ["Aeration diffuser", "Sludge return pump seal", "Sampling bottle set"]
+        return urgency_parts + ["Water quality sensor spare", "Calibration fluid"]
+
+    if module == "Leak Detection":
+        if signal == "Pressure (bar)":
+            return urgency_parts + ["Pressure sensor", "Pipe clamp", "Valve gasket", "Pipe repair sleeve"]
+        if signal == "Flow Rate (L/s)":
+            return urgency_parts + ["Flow meter", "Pump seal kit", "Valve actuator spare"]
+        if signal == "Temperature (C)" or signal == "Temperature (°C)":
+            return urgency_parts + ["Temperature probe", "Sensor cable", "Junction box seal"]
+        return urgency_parts + ["Pipe repair kit", "Valve gasket"]
+
+    if module == "Energy Digital Twin":
+        return urgency_parts + ["Motor bearing", "Pump seal kit", "V-belt / coupling", "Contactor relay", "Motor lubricant"]
+
+    if module == "Sensor Anomaly":
+        return urgency_parts + ["Replacement sensor", "Signal cable", "I/O module spare", "Calibration kit"]
+
+    return urgency_parts
+
+
+def assign_maintenance_team(module, signal, severity_level):
+    if module == "Water Quality":
+        return "Process Engineer + Water Quality Technician"
+    if module == "Leak Detection":
+        return "Pipeline Maintenance Technician + Network Operator"
+    if module == "Energy Digital Twin":
+        return "Electrical Technician + Mechanical Maintenance Engineer"
+    if module == "Sensor Anomaly":
+        return "Instrumentation Technician + OT/SCADA Engineer"
+    if severity_level in ["CRITICAL", "HIGH"]:
+        return "Senior Maintenance Team"
+    return "Operations Technician"
+
+
+def estimate_downtime(module, signal, severity_level):
+    if severity_level == "CRITICAL":
+        base_hours = 6
+    elif severity_level == "HIGH":
+        base_hours = 3
+    elif severity_level == "MEDIUM":
+        base_hours = 1.5
+    else:
+        base_hours = 0.5
+
+    if module == "Leak Detection":
+        base_hours += 2
+    if module == "Energy Digital Twin":
+        base_hours += 1.5
+    if module == "Sensor Anomaly":
+        base_hours -= 0.5
+
+    return max(base_hours, 0.5)
+
+
+def calculate_due_time(priority):
+    now = datetime.now()
+
+    if priority == "CRITICAL":
+        return now + timedelta(hours=2)
+    if priority == "HIGH":
+        return now + timedelta(hours=24)
+    if priority == "MEDIUM":
+        return now + timedelta(days=3)
+
+    return now + timedelta(days=7)
+
+
+def generate_ticket_id(module, signal):
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    module_code = "".join([word[0] for word in module.split()]).upper()
+    signal_code = "".join([ch for ch in str(signal) if ch.isalnum()])[:6].upper()
+    return f"MT-{module_code}-{signal_code}-{timestamp}"
+
+
+def generate_maintenance_ticket(
+    module,
+    signal,
+    latest_status,
+    severity_level,
+    severity_score,
+    risk_probability,
+    forecast_warning_time,
+    forecast_failure_time,
+    action_plan
+):
+    priority = severity_level if severity_level in ["LOW", "MEDIUM", "HIGH", "CRITICAL"] else "LOW"
+    technician_team = assign_maintenance_team(module, signal, severity_level)
+    spare_parts = get_spare_parts(module, signal, severity_level)
+    downtime_hours = estimate_downtime(module, signal, severity_level)
+    due_time = calculate_due_time(priority)
+
+    return {
+        "ticket_id": generate_ticket_id(module, signal),
+        "module": module,
+        "asset_or_signal": signal,
+        "failure_status": latest_status,
+        "priority": priority,
+        "technician_assignment": technician_team,
+        "required_spare_parts": ", ".join(spare_parts),
+        "estimated_downtime_hours": round(downtime_hours, 2),
+        "due_time": due_time.strftime("%Y-%m-%d %H:%M"),
+        "risk_probability": f"{risk_probability:.0%}",
+        "severity_score": round(float(severity_score), 3),
+        "forecast_warning_time": str(forecast_warning_time),
+        "forecast_failure_time": str(forecast_failure_time),
+        "maintenance_action": action_plan["action"],
+        "likely_cause": action_plan["likely_cause"],
+        "owner": action_plan["owner"],
+        "timeframe": action_plan["timeframe"],
+        "status": "OPEN"
+    }
+
+
+def show_maintenance_ticket(ticket):
+    st.subheader("Autonomous Maintenance Ticket")
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Ticket ID", ticket["ticket_id"])
+    c2.metric("Priority", ticket["priority"])
+    c3.metric("Due Time", ticket["due_time"])
+    c4.metric("Downtime", f'{ticket["estimated_downtime_hours"]} hrs')
+
+    if ticket["priority"] == "CRITICAL":
+        st.error(ticket["maintenance_action"])
+    elif ticket["priority"] == "HIGH":
+        st.warning(ticket["maintenance_action"])
+    elif ticket["priority"] == "MEDIUM":
+        st.info(ticket["maintenance_action"])
+    else:
+        st.success(ticket["maintenance_action"])
+
+    st.write("**Technician Assignment:**", ticket["technician_assignment"])
+    st.write("**Required Spare Parts:**", ticket["required_spare_parts"])
+    st.write("**Likely Cause:**", ticket["likely_cause"])
+    st.write("**Forecast Warning Time:**", ticket["forecast_warning_time"])
+    st.write("**Forecast Failure Time:**", ticket["forecast_failure_time"])
+
+    st.download_button(
+        "Download Maintenance Ticket CSV",
+        data=pd.DataFrame([ticket]).to_csv(index=False),
+        file_name=f'{ticket["ticket_id"]}.csv',
+        mime="text/csv"
+    )
+
+
+def create_ticket_from_trend(trend_df, forecast_df, meta, module_choice, value_col, direction):
+    if trend_df is None or trend_df.empty:
+        return None
+
+    latest = trend_df.iloc[-1]
+
+    latest_status = latest.get("failure_status", "NORMAL")
+    severity_level = latest.get("severity_level", "LOW")
+    severity_score = latest.get("severity_score", 0)
+    risk_probability = latest.get("risk_probability", 0.10)
+
+    forecast_warning_time = "Not forecasted"
+    forecast_failure_time = "Not forecasted"
+
+    if forecast_df is not None and not forecast_df.empty:
+        time_col = meta["time_col"]
+
+        if "forecast_warning" in forecast_df.columns:
+            fw = forecast_df[forecast_df["forecast_warning"]][time_col].min()
+            if pd.notna(fw):
+                forecast_warning_time = fw
+
+        if "forecast_failure" in forecast_df.columns:
+            ff = forecast_df[forecast_df["forecast_failure"]][time_col].min()
+            if pd.notna(ff):
+                forecast_failure_time = ff
+
+    action_plan = get_prescriptive_action(
+        module=module_choice,
+        signal=value_col,
+        status=latest_status,
+        latest_value=latest[value_col],
+        rolling_mean=latest["rolling_mean"],
+        direction=direction
+    )
+
+    return generate_maintenance_ticket(
+        module=module_choice,
+        signal=value_col,
+        latest_status=latest_status,
+        severity_level=severity_level,
+        severity_score=severity_score,
+        risk_probability=risk_probability,
+        forecast_warning_time=forecast_warning_time,
+        forecast_failure_time=forecast_failure_time,
+        action_plan=action_plan
+    )
+
+
+def build_all_maintenance_tickets(trend_df, module_choice, value_col, direction, time_col):
+    if trend_df is None or trend_df.empty:
+        return pd.DataFrame()
+
+    focus = trend_df[
+        trend_df["failure_status"].isin(["WATCH", "EARLY WARNING", "FAILURE"])
+    ].copy()
+
+    if focus.empty:
+        return pd.DataFrame()
+
+    tickets = []
+
+    for _, row in focus.iterrows():
+        action_plan = get_prescriptive_action(
+            module=module_choice,
+            signal=value_col,
+            status=row["failure_status"],
+            latest_value=row[value_col],
+            rolling_mean=row["rolling_mean"],
+            direction=direction
+        )
+
+        tickets.append(
+            generate_maintenance_ticket(
+                module=module_choice,
+                signal=value_col,
+                latest_status=row["failure_status"],
+                severity_level=row.get("severity_level", "LOW"),
+                severity_score=row.get("severity_score", 0),
+                risk_probability=row.get("risk_probability", 0.10),
+                forecast_warning_time=row[time_col],
+                forecast_failure_time=row[time_col] if row["failure_status"] == "FAILURE" else "Not yet failed",
+                action_plan=action_plan
+            )
+        )
+
+    return pd.DataFrame(tickets)
 
 
 
