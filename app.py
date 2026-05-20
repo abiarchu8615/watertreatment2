@@ -8,6 +8,12 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
+try:
+    from scipy.optimize import minimize
+    SCIPY_AVAILABLE = True
+except Exception:
+    SCIPY_AVAILABLE = False
+
 
 BASE = Path(__file__).resolve().parent
 DATA = BASE / "data"
@@ -44,7 +50,7 @@ selected_page = st.sidebar.radio(
         "Sensor Anomaly",
         "AI Prediction Demo",
         "Failure Trend Prediction",
-        "AI Chatbot"
+        "AI Chatbot",
         "Optimization AI"
     ]
 )
@@ -2723,6 +2729,128 @@ if selected_page == "Failure Trend Prediction":
 if selected_page == "AI Chatbot":
     render_ai_chatbot_page()
     
+
+# =========================
+# RBC OPTIMIZATION ENGINE
+# =========================
+
+def optimize_rbc_operation(
+    current_energy,
+    current_do,
+    current_bod,
+    current_flow,
+    current_ph
+):
+    """
+    Optimizes RBC operating settings:
+    - pump speed
+    - aeration rate
+    - chemical dose
+
+    Objective:
+    minimize energy + chemical + water-quality + overload penalties.
+    """
+
+    if not SCIPY_AVAILABLE:
+        # Safe fallback if scipy is not installed
+        recommended_aeration = 10.0 if current_do < 5 else 7.0
+        recommended_chemical = 3.0 if current_ph < 6.5 or current_ph > 8.5 else 1.5
+        recommended_pump = 4.0 if current_flow > 120 else 6.0
+
+        estimated_cost = (
+            recommended_pump * 0.45
+            + recommended_aeration * 0.35
+            + recommended_chemical * 0.20
+        )
+
+        return {
+            "optimal_pump_speed": round(recommended_pump, 2),
+            "optimal_aeration_rate": round(recommended_aeration, 2),
+            "optimal_chemical_dose": round(recommended_chemical, 2),
+            "estimated_operating_cost": round(estimated_cost, 2),
+            "optimization_method": "Rule-based fallback"
+        }
+
+    def objective(x):
+        pump_speed, aeration_rate, chemical_dose = x
+
+        energy_cost = (
+            pump_speed * 0.45
+            + aeration_rate * 0.35
+            + current_energy * 0.001
+        )
+
+        chemical_cost = chemical_dose * 0.20
+
+        bod_penalty = max(0, current_bod - 30) * 15
+        do_penalty = max(0, 5 - current_do) * 25
+        overload_penalty = max(0, current_flow - 120) * 10
+        ph_penalty = max(0, 6.5 - current_ph) * 20 + max(0, current_ph - 8.5) * 20
+
+        treatment_bonus = -0.5 * aeration_rate if current_do < 5 else 0
+
+        total_cost = (
+            energy_cost
+            + chemical_cost
+            + bod_penalty
+            + do_penalty
+            + overload_penalty
+            + ph_penalty
+            + treatment_bonus
+        )
+
+        return total_cost
+
+    bounds = [
+        (1, 10),    # pump speed
+        (3, 15),    # aeration rate
+        (0.5, 5),   # chemical dose
+    ]
+
+    initial_guess = [5, 8, 2]
+
+    result = minimize(
+        objective,
+        x0=initial_guess,
+        bounds=bounds,
+        method="L-BFGS-B"
+    )
+
+    if not result.success:
+        st.warning(f"Optimizer warning: {result.message}")
+
+    return {
+        "optimal_pump_speed": round(float(result.x[0]), 2),
+        "optimal_aeration_rate": round(float(result.x[1]), 2),
+        "optimal_chemical_dose": round(float(result.x[2]), 2),
+        "estimated_operating_cost": round(float(result.fun), 2),
+        "optimization_method": "SciPy minimize"
+    }
+
+
+def explain_optimization_result(result, current_do, current_bod, current_flow, current_ph):
+    actions = []
+
+    if current_do < 5:
+        actions.append("Increase aeration because DO is below safe operating level.")
+
+    if current_bod > 30:
+        actions.append("Reduce organic load or improve biological treatment because BOD is high.")
+
+    if current_flow > 120:
+        actions.append("Balance or reduce flow to prevent hydraulic overload.")
+
+    if current_ph < 6.5:
+        actions.append("Increase alkalinity / dosing correction because pH is low.")
+    elif current_ph > 8.5:
+        actions.append("Adjust dosing because pH is high.")
+
+    if not actions:
+        actions.append("Current process condition is stable; optimizer focuses on reducing energy and chemical cost.")
+
+    return actions
+
+
 # =========================
 # OPTIMIZATION AI PAGE
 # =========================
@@ -2803,6 +2931,22 @@ if selected_page == "Optimization AI":
             "Estimated Cost",
             result["estimated_operating_cost"]
         )
+
+        st.metric(
+            "Optimization Method",
+            result.get("optimization_method", "Unknown")
+        )
+
+        st.subheader("Optimization Explanation")
+
+        for action in explain_optimization_result(
+            result,
+            current_do=current_do,
+            current_bod=current_bod,
+            current_flow=current_flow,
+            current_ph=current_ph
+        ):
+            st.write(f"- {action}")
 
         st.info(
             "Optimization AI recommends operational settings "
