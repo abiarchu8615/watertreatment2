@@ -51,7 +51,8 @@ selected_page = st.sidebar.radio(
         "AI Prediction Demo",
         "Failure Trend Prediction",
         "AI Chatbot",
-        "Optimization AI"
+        "Optimization AI",
+        "Multi-Agent AI"
     ]
 )
 
@@ -2026,6 +2027,364 @@ def render_ai_chatbot_page():
 
 
 
+
+# =========================
+# MULTI-AGENT AI SYSTEM
+# =========================
+
+class MonitoringAgent:
+    """
+    Watches sensor data and summarizes current condition.
+    """
+
+    def watch(self, df, signal):
+        work = df.copy()
+        work[signal] = pd.to_numeric(work[signal], errors="coerce")
+        work = work.dropna(subset=[signal])
+
+        if work.empty:
+            return {
+                "agent": "Monitoring Agent",
+                "status": "NO DATA",
+                "message": f"No valid data found for {signal}"
+            }
+
+        latest = work.iloc[-1]
+
+        return {
+            "agent": "Monitoring Agent",
+            "signal": signal,
+            "latest_value": float(latest[signal]),
+            "average_value": float(work[signal].mean()),
+            "minimum_value": float(work[signal].min()),
+            "maximum_value": float(work[signal].max()),
+            "status": "MONITORING COMPLETE"
+        }
+
+
+class PredictionAgent:
+    """
+    Uses existing model metrics or available data patterns to provide prediction context.
+    """
+
+    def predict(self, module_name, df):
+        metric_map = {
+            "Water Quality": "water_quality",
+            "Leak Detection": "leak_status",
+            "Energy Digital Twin": "energy",
+            "Sensor Anomaly": "sensor_attack"
+        }
+
+        metrics = show_metric_file(metric_map.get(module_name, ""))
+
+        if metrics:
+            if "accuracy" in metrics:
+                return {
+                    "agent": "Prediction Agent",
+                    "module": module_name,
+                    "model_type": "Classification",
+                    "accuracy": metrics.get("accuracy"),
+                    "status": "MODEL METRICS FOUND"
+                }
+
+            if "r2_score" in metrics:
+                return {
+                    "agent": "Prediction Agent",
+                    "module": module_name,
+                    "model_type": "Regression",
+                    "r2_score": metrics.get("r2_score"),
+                    "mae": metrics.get("mae"),
+                    "status": "MODEL METRICS FOUND"
+                }
+
+        return {
+            "agent": "Prediction Agent",
+            "module": module_name,
+            "status": "NO MODEL METRICS FOUND",
+            "message": "Run train_models.py to generate model performance files."
+        }
+
+
+class TrendAgent:
+    """
+    Detects degradation trend using the existing failure trend engine.
+    """
+
+    def detect(self, df, module_name, signal):
+        if module_name in ["Water Quality", "Leak Detection"]:
+            time_col = "Timestamp"
+            time_is_datetime = True
+
+            if time_col in df.columns:
+                df[time_col] = pd.to_datetime(df[time_col], errors="coerce")
+            else:
+                df[time_col] = pd.date_range(start="2024-01-01", periods=len(df), freq="h")
+
+        elif module_name == "Energy Digital Twin":
+            time_col = "Date"
+            time_is_datetime = True
+
+            if "Date" not in df.columns:
+                if {"Year", "Month", "Day"}.issubset(df.columns):
+                    df["Date"] = pd.to_datetime(
+                        dict(
+                            year=df["Year"].astype(int),
+                            month=df["Month"].astype(int),
+                            day=df["Day"].astype(int)
+                        ),
+                        errors="coerce"
+                    )
+                else:
+                    df["Date"] = pd.date_range(start="2024-01-01", periods=len(df), freq="D")
+
+        else:
+            df = df.reset_index(drop=True)
+            df["Trend_Index"] = df.index
+            time_col = "Trend_Index"
+            time_is_datetime = False
+
+        direction = "below" if signal in ["DO (mg/L)", "Pressure (bar)"] else "above"
+
+        if direction == "above":
+            warning_threshold = df[signal].quantile(0.80)
+            failure_threshold = df[signal].quantile(0.95)
+        else:
+            warning_threshold = df[signal].quantile(0.20)
+            failure_threshold = df[signal].quantile(0.05)
+
+        trend_df = detect_failure_trend(
+            df=df,
+            time_col=time_col,
+            value_col=signal,
+            warning_threshold=warning_threshold,
+            failure_threshold=failure_threshold,
+            direction=direction,
+            window=10,
+            time_is_datetime=time_is_datetime
+        )
+
+        trend_df = add_failure_severity_score(trend_df)
+
+        if trend_df.empty:
+            return {
+                "agent": "Trend Agent",
+                "status": "NO TREND DATA"
+            }
+
+        latest = trend_df.iloc[-1]
+
+        return {
+            "agent": "Trend Agent",
+            "signal": signal,
+            "direction": direction,
+            "latest_status": latest["failure_status"],
+            "severity_level": latest["severity_level"],
+            "severity_score": float(latest["severity_score"]),
+            "risk_probability": float(latest["risk_probability"]),
+            "trend_change": float(latest["trend_change"]),
+            "rolling_mean": float(latest["rolling_mean"]),
+            "status": "TREND ANALYSIS COMPLETE"
+        }
+
+
+class DecisionAgent:
+    """
+    Converts monitoring, prediction, and trend results into operational decisions.
+    """
+
+    def decide(self, module_name, signal, monitoring, prediction, trend):
+        latest_status = trend.get("latest_status", "NORMAL")
+        severity_level = trend.get("severity_level", "LOW")
+        direction = trend.get("direction", "above")
+
+        action_plan = get_prescriptive_action(
+            module=module_name,
+            signal=signal,
+            status=latest_status,
+            latest_value=monitoring.get("latest_value", 0),
+            rolling_mean=trend.get("rolling_mean", 0),
+            direction=direction
+        )
+
+        return {
+            "agent": "Decision Agent",
+            "priority": action_plan["priority"],
+            "owner": action_plan["owner"],
+            "timeframe": action_plan["timeframe"],
+            "likely_cause": action_plan["likely_cause"],
+            "recommended_action": action_plan["action"],
+            "severity_level": severity_level,
+            "status": "DECISION GENERATED"
+        }
+
+
+class OptimizationAgent:
+    """
+    Recommends optimization actions for cost, energy, aeration, chemical dosing, and flow.
+    """
+
+    def optimize(self, df, module_name):
+        if module_name in ["Water Quality", "Energy Digital Twin"]:
+            try:
+                water_df = load_csv("Water_Quality_Dataset.csv")
+                latest = water_df.iloc[-1]
+
+                current_energy = 1200.0
+                current_do = float(latest.get("DO (mg/L)", 5.0))
+                current_bod = float(latest.get("BOD (mg/L)", 30.0))
+                current_flow = 100.0
+                current_ph = float(latest.get("pH", 7.0))
+
+                result = optimize_rbc_operation(
+                    current_energy=current_energy,
+                    current_do=current_do,
+                    current_bod=current_bod,
+                    current_flow=current_flow,
+                    current_ph=current_ph
+                )
+
+                return {
+                    "agent": "Optimization Agent",
+                    "optimization_result": result,
+                    "status": "OPTIMIZATION COMPLETE"
+                }
+
+            except Exception as e:
+                return {
+                    "agent": "Optimization Agent",
+                    "status": "OPTIMIZATION ERROR",
+                    "message": str(e)
+                }
+
+        return {
+            "agent": "Optimization Agent",
+            "recommendation": "No process optimization required for this module. Continue monitoring and preventive maintenance.",
+            "status": "OPTIMIZATION NOT REQUIRED"
+        }
+
+
+class ReportingAgent:
+    """
+    Creates final multi-agent report.
+    """
+
+    def generate(self, monitoring, prediction, trend, decision, optimization):
+        return {
+            "monitoring_result": monitoring,
+            "prediction_result": prediction,
+            "trend_result": trend,
+            "decision_result": decision,
+            "optimization_result": optimization,
+            "executive_summary": {
+                "overall_priority": decision.get("priority", "LOW"),
+                "severity_level": trend.get("severity_level", "LOW"),
+                "recommended_action": decision.get("recommended_action", "Continue monitoring."),
+                "owner": decision.get("owner", "Operations Team")
+            }
+        }
+
+
+class SupervisorAgent:
+    """
+    Coordinates all specialist agents.
+    """
+
+    def __init__(self):
+        self.monitoring = MonitoringAgent()
+        self.prediction = PredictionAgent()
+        self.trend = TrendAgent()
+        self.decision = DecisionAgent()
+        self.optimization = OptimizationAgent()
+        self.reporting = ReportingAgent()
+
+    def run(self, df, module_name, signal):
+        monitoring_result = self.monitoring.watch(df, signal)
+        prediction_result = self.prediction.predict(module_name, df)
+        trend_result = self.trend.detect(df, module_name, signal)
+
+        decision_result = self.decision.decide(
+            module_name=module_name,
+            signal=signal,
+            monitoring=monitoring_result,
+            prediction=prediction_result,
+            trend=trend_result
+        )
+
+        optimization_result = self.optimization.optimize(df, module_name)
+
+        report = self.reporting.generate(
+            monitoring=monitoring_result,
+            prediction=prediction_result,
+            trend=trend_result,
+            decision=decision_result,
+            optimization=optimization_result
+        )
+
+        return report
+
+
+def render_multi_agent_report(report):
+    st.subheader("Multi-Agent AI Executive Summary")
+
+    summary = report.get("executive_summary", {})
+
+    c1, c2, c3 = st.columns(3)
+
+    c1.metric("Overall Priority", summary.get("overall_priority", "UNKNOWN"))
+    c2.metric("Severity Level", summary.get("severity_level", "UNKNOWN"))
+    c3.metric("Owner", summary.get("owner", "Operations Team"))
+
+    action = summary.get("recommended_action", "Continue monitoring.")
+
+    priority = summary.get("overall_priority", "LOW")
+
+    if priority == "CRITICAL":
+        st.error(action)
+    elif priority == "HIGH":
+        st.warning(action)
+    elif priority == "MEDIUM":
+        st.info(action)
+    else:
+        st.success(action)
+
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
+        [
+            "Monitoring Agent",
+            "Prediction Agent",
+            "Trend Agent",
+            "Decision Agent",
+            "Optimization Agent",
+            "Full JSON Report"
+        ]
+    )
+
+    with tab1:
+        st.json(report.get("monitoring_result", {}))
+
+    with tab2:
+        st.json(report.get("prediction_result", {}))
+
+    with tab3:
+        st.json(report.get("trend_result", {}))
+
+    with tab4:
+        st.json(report.get("decision_result", {}))
+
+    with tab5:
+        st.json(report.get("optimization_result", {}))
+
+    with tab6:
+        st.json(report)
+
+    st.download_button(
+        "Download Multi-Agent Report JSON",
+        data=json.dumps(report, indent=2),
+        file_name="multi_agent_ai_report.json",
+        mime="application/json"
+    )
+
+
+
 # =========================
 # OVERVIEW PAGE
 # =========================
@@ -2953,3 +3312,66 @@ if selected_page == "Optimization AI":
             "that reduce energy usage while maintaining "
             "stable RBC treatment performance."
         )
+
+
+# =========================
+# MULTI-AGENT AI PAGE
+# =========================
+
+if selected_page == "Multi-Agent AI":
+
+    st.subheader("Multi-Agent AI Operations System")
+
+    module_name = st.selectbox(
+        "Choose module",
+        [
+            "Water Quality",
+            "Leak Detection",
+            "Energy Digital Twin",
+            "Sensor Anomaly"
+        ]
+    )
+
+    if module_name == "Water Quality":
+        df = load_csv("Water_Quality_Dataset.csv")
+        signal = st.selectbox(
+            "Signal",
+            ["pH", "Turbidity (NTU)", "DO (mg/L)", "BOD (mg/L)"]
+        )
+
+    elif module_name == "Leak Detection":
+        df = load_csv("water_leak_detection_1000_rows.csv")
+        signal = st.selectbox(
+            "Signal",
+            ["Pressure (bar)", "Flow Rate (L/s)", "Temperature (°C)"]
+        )
+
+    elif module_name == "Energy Digital Twin":
+        df = load_csv("Data-Melbourne_F_fixed.csv")
+        signal = "Energy Consumption"
+
+        st.info("Energy Digital Twin uses Energy Consumption as the main optimization and trend signal.")
+
+    else:
+        df = load_csv("merged_sample.csv", nrows=200000)
+        numeric_cols = df.select_dtypes(include="number").columns.tolist()
+
+        if not numeric_cols:
+            st.error("No numeric sensor columns found.")
+            st.stop()
+
+        signal = st.selectbox("Signal", numeric_cols)
+
+    if st.button("Run Multi-Agent AI"):
+
+        supervisor = SupervisorAgent()
+
+        report = supervisor.run(
+            df=df,
+            module_name=module_name,
+            signal=signal
+        )
+
+        st.success("Multi-Agent AI completed analysis")
+
+        render_multi_agent_report(report)
