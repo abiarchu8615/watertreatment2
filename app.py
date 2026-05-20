@@ -2503,7 +2503,6 @@ def render_multi_agent_report(report):
     c3.metric("Owner", summary.get("owner", "Operations Team"))
 
     action = summary.get("recommended_action", "Continue monitoring.")
-
     priority = summary.get("overall_priority", "LOW")
 
     if priority == "CRITICAL":
@@ -2515,15 +2514,15 @@ def render_multi_agent_report(report):
     else:
         st.success(action)
 
-   tab1, tab2, tab3, tab4, tab5 = st.tabs(
-    [
-        "Monitoring Agent",
-        "Prediction Agent",
-        "Trend Agent",
-        "Decision Agent",
-        "Optimization Agent"
-    ]
-)
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(
+        [
+            "Monitoring Agent",
+            "Prediction Agent",
+            "Trend Agent",
+            "Decision Agent",
+            "Optimization Agent"
+        ]
+    )
 
     with tab1:
         st.json(report.get("monitoring_result", {}))
@@ -2540,15 +2539,12 @@ def render_multi_agent_report(report):
     with tab5:
         st.json(report.get("optimization_result", {}))
 
-    
-
     st.download_button(
         "Download Multi-Agent Report JSON",
         data=json.dumps(report, indent=2),
         file_name="multi_agent_ai_report.json",
         mime="application/json"
     )
-
 
 
 # =========================
