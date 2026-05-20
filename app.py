@@ -2515,16 +2515,15 @@ def render_multi_agent_report(report):
     else:
         st.success(action)
 
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
-        [
-            "Monitoring Agent",
-            "Prediction Agent",
-            "Trend Agent",
-            "Decision Agent",
-            "Optimization Agent",
-            "Full JSON Report"
-        ]
-    )
+   tab1, tab2, tab3, tab4, tab5 = st.tabs(
+    [
+        "Monitoring Agent",
+        "Prediction Agent",
+        "Trend Agent",
+        "Decision Agent",
+        "Optimization Agent"
+    ]
+)
 
     with tab1:
         st.json(report.get("monitoring_result", {}))
@@ -2541,8 +2540,7 @@ def render_multi_agent_report(report):
     with tab5:
         st.json(report.get("optimization_result", {}))
 
-    with tab6:
-        st.json(report)
+    
 
     st.download_button(
         "Download Multi-Agent Report JSON",
