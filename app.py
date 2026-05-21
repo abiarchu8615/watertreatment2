@@ -23,7 +23,7 @@ DATA = BASE / "data"
 MODELS = BASE / "models"
 REPORTS = BASE / "reports"
 
-st.write("NEW VERSION LOADED")
+
 
 st.set_page_config(
     page_title="AI Digital Twin for Smart Water Treatment",
@@ -36,7 +36,7 @@ st.write(
     "water quality analysis, energy prediction, industrial anomaly detection, "
     "failure trend prediction, and prescriptive maintenance actions."
 )
-
+st.write("NEW VERSION LOADED")
 
 # =========================
 # SIDEBAR CONTROLS
