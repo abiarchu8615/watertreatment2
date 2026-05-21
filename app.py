@@ -130,6 +130,8 @@ import requests
 
 
 def send_telegram_alert(message):
+    import requests
+    import streamlit as st
 
     bot_token = "8598277757:AAEeo0U5WSaIttAimC8w7XtZtFiO-G-q3Fw"
     chat_id = "8172522699"
@@ -138,31 +140,20 @@ def send_telegram_alert(message):
 
     payload = {
         "chat_id": chat_id,
-        "text": message
+        "text": str(message)
     }
 
-    response = requests.post(url, json=payload)
+    response = requests.post(url, json=payload, timeout=10)
 
-    st.write(response.text)
+    st.write("Telegram response:", response.text)
 
-    return response.status_code == 200
-
-
-st.title("Telegram Test")
-
-message = st.text_area(
-    "Message",
-    "Hello from Streamlit 🚀"
-)
-
-if st.button("Send Telegram Alert"):
-
-    success = send_telegram_alert(message)
-
-    if success:
-        st.success("Message sent!")
+    if response.status_code == 200:
+        st.success("Telegram alert sent successfully!")
+        return True
     else:
-        st.error("Failed to send message")
+        st.error("Telegram alert failed.")
+        return False
+    
 def send_whatsapp_alert(message):
     """
     Sends an alert to WhatsApp using Twilio WhatsApp API.
@@ -247,13 +238,22 @@ def render_alert_buttons(ticket):
 
     col1, col2 = st.columns(2)
 
-    with col1:
-        if st.button(
-            "Send Telegram Alert",
-            key=f"telegram_{ticket['ticket_id']}"
-        ):
-            if send_telegram_alert(alert_message):
-                st.success("Telegram alert sent successfully.")
+with col1:
+    if st.button(
+        "Send Telegram Alert",
+        key=f"telegram_{ticket['ticket_id']}"
+    ):
+
+        st.write("Button clicked!")
+
+        success = send_telegram_alert(alert_message)
+
+        st.write("Function returned:", success)
+
+        if success:
+            st.success("Telegram alert sent successfully.")
+        else:
+            st.error("Telegram alert failed.")
 
     with col2:
         if st.button(
