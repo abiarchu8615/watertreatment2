@@ -285,14 +285,16 @@ def render_alert_buttons(ticket):
 
 def auto_send_critical_alert(ticket):
     """
-    Sends one automatic Telegram alert per ticket for HIGH/CRITICAL priority.
-    WhatsApp is kept manual to avoid accidental repeated paid messages.
+    Sends one automatic Telegram alert per ticket.
     """
-    if ticket["priority"] not in ["HIGH", "CRITICAL"]:
+
+    # VALID PRIORITIES
+    if ticket["priority"] not in ["LOW", "MEDIUM", "HIGH", "CRITICAL"]:
         return
 
     sent_key = f"auto_alert_sent_{ticket['ticket_id']}"
 
+    # Prevent duplicate alerts
     if st.session_state.get(sent_key):
         return
 
@@ -300,7 +302,7 @@ def auto_send_critical_alert(ticket):
 
     if send_telegram_alert(alert_message):
         st.session_state[sent_key] = True
-        st.success("Automatic Telegram alert sent for high-risk ticket.")
+        st.success("Automatic Telegram alert sent.")
 
 
 # =========================
@@ -311,7 +313,7 @@ def get_maintenance_decision(module, prediction):
 
     if module == "Water Quality Pollution Level":
 
-        if str(prediction).lower() in ["high", "unsafe", "severe", "critical"]:
+        if ticket["priority"] not in ["LOW", "MEDIUM", "HIGH", "CRITICAL"]:
             return (
                 "Critical",
                 "Increase aeration and inspect biological treatment stage immediately."
@@ -1379,7 +1381,7 @@ def show_maintenance_ticket(ticket):
         mime="text/csv"
     )
 
-    if ticket["priority"] in ["HIGH", "CRITICAL"]:
+    if ticket["priority"] not in ["LOW", "MEDIUM", "HIGH", "CRITICAL"]:
         auto_send_critical_alert(ticket)
 
     render_alert_buttons(ticket)
