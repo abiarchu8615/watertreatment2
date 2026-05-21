@@ -60,15 +60,7 @@ selected_page = st.sidebar.radio(
     ]
 )
 
-# =========================
-# TELEGRAM TEST BUTTON
-# =========================
 
-if st.sidebar.button("TEST TELEGRAM"):
-    if send_telegram_alert("Test message from Streamlit sidebar"):
-        st.sidebar.success("Telegram test sent.")
-    else:
-        st.sidebar.error("Telegram test failed.")
 
 # =========================
 # DATA + METRIC HELPERS
@@ -166,6 +158,17 @@ def send_telegram_alert(message):
         st.error(f"Telegram alert failed: {e}")
         return False
 
+# =========================
+# TELEGRAM TEST BUTTON
+# =========================
+
+if st.sidebar.button("TEST TELEGRAM"):
+    if send_telegram_alert("Test message from Streamlit sidebar"):
+        st.sidebar.success("Telegram test sent.")
+    else:
+        st.sidebar.error("Telegram test failed.")
+        
+        
 def send_whatsapp_alert(message):
     """
     Sends an alert to WhatsApp using Twilio WhatsApp API.
