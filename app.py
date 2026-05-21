@@ -125,16 +125,28 @@ def safe_dataframe(df, message="No records to display."):
 # ALERT / PUSH NOTIFICATION HELPERS
 # =========================
 
-import streamlit as st
-import requests
-
-
 def send_telegram_alert(message):
-    import requests
-    import streamlit as st
+    """
+    Sends an alert to Telegram.
 
-    bot_token = "8598277757:AAEeo0U5WSaIttAimC8w7XtZtFiO-G-q3Fw"
-    chat_id = "8172522699"
+    Recommended: set these as environment variables / Streamlit secrets:
+    - TELEGRAM_BOT_TOKEN
+    - TELEGRAM_CHAT_ID
+    """
+
+    bot_token = os.getenv(
+        "TELEGRAM_BOT_TOKEN",
+        "8598277757:AAEeo0U5WSaIttAimC8w7XtZtFiO-G-q3Fw"
+    ).strip()
+
+    chat_id = os.getenv(
+        "TELEGRAM_CHAT_ID",
+        "8172522699"
+    ).strip()
+
+    if not bot_token or not chat_id:
+        st.error("Telegram bot token or chat ID is missing.")
+        return False
 
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
 
@@ -143,17 +155,33 @@ def send_telegram_alert(message):
         "text": str(message)
     }
 
-    response = requests.post(url, json=payload, timeout=10)
+    try:
+        response = requests.post(
+            url,
+            json=payload,
+            timeout=10
+        )
 
-    st.write("Telegram response:", response.text)
+        try:
+            result = response.json()
+        except Exception:
+            result = {"raw_response": response.text}
 
-    if response.status_code == 200:
-        st.success("Telegram alert sent successfully!")
-        return True
-    else:
-        st.error("Telegram alert failed.")
+        st.write("Telegram API response:")
+        st.json(result)
+
+        if response.status_code == 200 and result.get("ok") is True:
+            return True
+
+        description = result.get("description", response.text)
+        st.error(f"Telegram alert failed: {description}")
         return False
-    
+
+    except Exception as e:
+        st.error(f"Telegram alert failed: {e}")
+        return False
+
+
 def send_whatsapp_alert(message):
     """
     Sends an alert to WhatsApp using Twilio WhatsApp API.
@@ -185,7 +213,7 @@ def send_whatsapp_alert(message):
     data = {
         "From": from_number,
         "To": to_number,
-        "Body": message
+        "Body": str(message)
     }
 
     try:
@@ -195,15 +223,20 @@ def send_whatsapp_alert(message):
             auth=(account_sid, auth_token),
             timeout=10
         )
-        response.raise_for_status()
-        return True
+
+        if response.status_code in [200, 201]:
+            return True
+
+        st.error(f"WhatsApp alert failed: {response.text}")
+        return False
+
     except Exception as e:
         st.error(f"WhatsApp alert failed: {e}")
         return False
 
 
 def build_alert_message(ticket):
-    return f"""🚨 *Smart Water Treatment Alert*
+    return f"""Smart Water Treatment Alert
 
 Ticket ID: {ticket["ticket_id"]}
 Priority: {ticket["priority"]}
@@ -243,24 +276,24 @@ def render_alert_buttons(ticket):
             "Send Telegram Alert",
             key=f"telegram_{ticket['ticket_id']}"
         ):
-            st.write("Button clicked!")
-
             success = send_telegram_alert(alert_message)
-
-            st.write("Function returned:", success)
 
             if success:
                 st.success("Telegram alert sent successfully.")
             else:
-                st.error("Telegram alert failed.")
+                st.error("Telegram alert failed. Check the Telegram API response above.")
 
     with col2:
         if st.button(
             "Send WhatsApp Alert",
             key=f"whatsapp_{ticket['ticket_id']}"
         ):
-            if send_whatsapp_alert(alert_message):
+            success = send_whatsapp_alert(alert_message)
+
+            if success:
                 st.success("WhatsApp alert sent successfully.")
+            else:
+                st.error("WhatsApp alert failed.")
 
 
 def auto_send_critical_alert(ticket):
