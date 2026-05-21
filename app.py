@@ -173,25 +173,9 @@ if st.sidebar.button("TEST TELEGRAM"):
         
         
 def send_email_alert(subject, message):
-    """
-    Sends alert email using SMTP.
-
-    Required environment variables:
-    - EMAIL_SENDER
-    - EMAIL_PASSWORD
-    - EMAIL_RECEIVER
-    """
-
-    sender_email = os.getenv("abirami.kunasagaran@rohastecnic.com")
-    sender_password = os.getenv("xltb jvix uieg jfts")
-    receiver_email = os.getenv("abiarchu8615@gmail.com")
-
-    if not all([sender_email, sender_password, receiver_email]):
-        st.warning(
-            "Email credentials not configured. "
-            "Set EMAIL_SENDER, EMAIL_PASSWORD, and EMAIL_RECEIVER."
-        )
-        return False
+    sender_email = "abirami.kunasagaran@rohastecnic.com"
+    sender_password = "YOUR_NEW_APP_PASSWORD"
+    receiver_email = "abiarchu8615@gmail.com"
 
     try:
         msg = EmailMessage()
@@ -200,9 +184,8 @@ def send_email_alert(subject, message):
         msg["To"] = receiver_email
         msg.set_content(str(message))
 
-        # TLS connection
         with smtplib.SMTP("smtp.gmail.com", 587) as smtp:
-            smtp.starttls()   # IMPORTANT
+            smtp.starttls()
             smtp.login(sender_email, sender_password)
             smtp.send_message(msg)
 
