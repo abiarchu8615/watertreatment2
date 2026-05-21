@@ -158,15 +158,7 @@ def send_telegram_alert(message):
         st.error(f"Telegram alert failed: {e}")
         return False
 
-# =========================
-# TELEGRAM TEST BUTTON
-# =========================
 
-if st.sidebar.button("TEST TELEGRAM"):
-    if send_telegram_alert("Test message from Streamlit sidebar"):
-        st.sidebar.success("Telegram test sent.")
-    else:
-        st.sidebar.error("Telegram test failed.")
         
         
 def send_email_alert(subject, message):
