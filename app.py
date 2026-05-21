@@ -200,7 +200,9 @@ def send_email_alert(subject, message):
         msg["To"] = receiver_email
         msg.set_content(str(message))
 
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+        # TLS connection
+        with smtplib.SMTP("smtp.gmail.com", 587) as smtp:
+            smtp.starttls()   # IMPORTANT
             smtp.login(sender_email, sender_password)
             smtp.send_message(msg)
 
