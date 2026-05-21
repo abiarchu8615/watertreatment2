@@ -132,7 +132,19 @@ def send_telegram_alert(message):
     bot_token = "8598277757:AAEeo0U5WSaIttAimC8w7XtZtFiO-G-q3Fw"
     chat_id = "8172522699"
 
-    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    # 1. Check bot token first
+    check_url = f"https://api.telegram.org/bot{bot_token}/getMe"
+    check_response = requests.get(check_url, timeout=10)
+
+    st.write("Bot Check Status:", check_response.status_code)
+    st.write("Bot Check Response:", check_response.text)
+
+    if check_response.status_code != 200:
+        st.error("Bot token is invalid or revoked.")
+        return False
+
+    # 2. Send message
+    send_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
 
     payload = {
         "chat_id": chat_id,
@@ -140,20 +152,22 @@ def send_telegram_alert(message):
     }
 
     try:
-        response = requests.post(url, json=payload, timeout=10)
+        response = requests.post(send_url, json=payload, timeout=10)
 
-        st.write("Status Code:", response.status_code)
-        st.write("Response:", response.text)
+        st.write("Send Status Code:", response.status_code)
+        st.write("Send Response:", response.text)
 
-        response.raise_for_status()
-
-        st.success("Telegram alert sent successfully!")
-        return True
+        if response.status_code == 200:
+            st.success("Telegram alert sent successfully!")
+            return True
+        else:
+            st.error("Telegram message was not sent.")
+            return False
 
     except Exception as e:
         st.error(f"Telegram alert failed: {e}")
         return False
-
+    
 
 def send_whatsapp_alert(message):
     """
