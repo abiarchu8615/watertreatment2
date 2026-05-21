@@ -148,9 +148,6 @@ def send_telegram_alert(message):
         response = requests.post(url, json=payload, timeout=10)
         result = response.json()
 
-        st.write("Telegram API response:")
-        st.json(result)
-
         if response.status_code == 200 and result.get("ok") is True:
             return True
 
