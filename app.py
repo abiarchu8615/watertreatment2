@@ -130,6 +130,9 @@ def send_telegram_alert(message):
     Sends an alert to Telegram.
     """
 
+    import requests
+    import streamlit as st
+
     bot_token = "8598277757:AAGW0Gn0gIv-oTWpFHZ44V3aFHvJUuS4ifw"
     chat_id = "8172522699"
 
@@ -137,12 +140,20 @@ def send_telegram_alert(message):
 
     payload = {
         "chat_id": chat_id,
-        "text": message,
-        "parse_mode": "Markdown"
+        "text": message
     }
 
     try:
-        response = requests.post(url, json=payload, timeout=10)
+        response = requests.post(
+            url,
+            json=payload,
+            timeout=10
+        )
+
+        # Debug output
+        st.write("Status Code:", response.status_code)
+        st.write("Response:", response.text)
+
         response.raise_for_status()
 
         st.success("Telegram alert sent successfully!")
