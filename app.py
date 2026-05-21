@@ -238,22 +238,21 @@ def render_alert_buttons(ticket):
 
     col1, col2 = st.columns(2)
 
-with col1:
-    if st.button(
-        "Send Telegram Alert",
-        key=f"telegram_{ticket['ticket_id']}"
-    ):
+    with col1:
+        if st.button(
+            "Send Telegram Alert",
+            key=f"telegram_{ticket['ticket_id']}"
+        ):
+            st.write("Button clicked!")
 
-        st.write("Button clicked!")
+            success = send_telegram_alert(alert_message)
 
-        success = send_telegram_alert(alert_message)
+            st.write("Function returned:", success)
 
-        st.write("Function returned:", success)
-
-        if success:
-            st.success("Telegram alert sent successfully.")
-        else:
-            st.error("Telegram alert failed.")
+            if success:
+                st.success("Telegram alert sent successfully.")
+            else:
+                st.error("Telegram alert failed.")
 
     with col2:
         if st.button(
