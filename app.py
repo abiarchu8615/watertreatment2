@@ -11,6 +11,9 @@ import streamlit as st
 import requests
 import os
 
+import smtplib
+from email.message import EmailMessage
+
 try:
     from scipy.optimize import minimize
     SCIPY_AVAILABLE = True
@@ -169,56 +172,42 @@ if st.sidebar.button("TEST TELEGRAM"):
         st.sidebar.error("Telegram test failed.")
         
         
-def send_whatsapp_alert(message):
+def send_email_alert(subject, message):
     """
-    Sends an alert to WhatsApp using Twilio WhatsApp API.
+    Sends alert email using SMTP.
 
     Required environment variables:
-    - TWILIO_ACCOUNT_SID
-    - TWILIO_AUTH_TOKEN
-    - TWILIO_WHATSAPP_FROM   example: whatsapp:+14155238886
-    - TWILIO_WHATSAPP_TO     example: whatsapp:+60123456789
+    - EMAIL_SENDER
+    - EMAIL_PASSWORD
+    - EMAIL_RECEIVER
     """
-    account_sid = os.getenv("TWILIO_ACCOUNT_SID")
-    auth_token = os.getenv("TWILIO_AUTH_TOKEN")
-    from_number = os.getenv("TWILIO_WHATSAPP_FROM")
-    to_number = os.getenv("TWILIO_WHATSAPP_TO")
 
-    if not all([account_sid, auth_token, from_number, to_number]):
+    sender_email = os.getenv("EMAIL_SENDER")
+    sender_password = os.getenv("EMAIL_PASSWORD")
+    receiver_email = os.getenv("EMAIL_RECEIVER")
+
+    if not all([sender_email, sender_password, receiver_email]):
         st.warning(
-            "WhatsApp credentials not configured. "
-            "Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, "
-            "TWILIO_WHATSAPP_FROM, and TWILIO_WHATSAPP_TO."
+            "Email credentials not configured. "
+            "Set EMAIL_SENDER, EMAIL_PASSWORD, and EMAIL_RECEIVER."
         )
         return False
-
-    url = (
-        f"https://api.twilio.com/2010-04-01/Accounts/"
-        f"{account_sid}/Messages.json"
-    )
-
-    data = {
-        "From": from_number,
-        "To": to_number,
-        "Body": str(message)
-    }
 
     try:
-        response = requests.post(
-            url,
-            data=data,
-            auth=(account_sid, auth_token),
-            timeout=10
-        )
+        msg = EmailMessage()
+        msg["Subject"] = subject
+        msg["From"] = sender_email
+        msg["To"] = receiver_email
+        msg.set_content(str(message))
 
-        if response.status_code in [200, 201]:
-            return True
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+            smtp.login(sender_email, sender_password)
+            smtp.send_message(msg)
 
-        st.error(f"WhatsApp alert failed: {response.text}")
-        return False
+        return True
 
     except Exception as e:
-        st.error(f"WhatsApp alert failed: {e}")
+        st.error(f"Email alert failed: {e}")
         return False
 
 
@@ -272,16 +261,18 @@ def render_alert_buttons(ticket):
 
     with col2:
         if st.button(
-            "Send WhatsApp Alert",
-            key=f"whatsapp_{ticket['ticket_id']}"
+            "Send Email Alert",
+            key=f"email_{ticket['ticket_id']}"
         ):
-            success = send_whatsapp_alert(alert_message)
+            success = send_email_alert(
+                subject=f"Smart Water Treatment Alert - {ticket['ticket_id']}",
+                message=alert_message
+            )
 
             if success:
-                st.success("WhatsApp alert sent successfully.")
+                st.success("Email alert sent successfully.")
             else:
-                st.error("WhatsApp alert failed.")
-
+                st.error("Email alert failed.")
 
 def auto_send_critical_alert(ticket):
     """
