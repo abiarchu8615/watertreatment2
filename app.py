@@ -60,7 +60,15 @@ selected_page = st.sidebar.radio(
     ]
 )
 
+# =========================
+# TELEGRAM TEST BUTTON
+# =========================
 
+if st.sidebar.button("TEST TELEGRAM"):
+    if send_telegram_alert("Test message from Streamlit sidebar"):
+        st.sidebar.success("Telegram test sent.")
+    else:
+        st.sidebar.error("Telegram test failed.")
 
 # =========================
 # DATA + METRIC HELPERS
@@ -127,23 +135,8 @@ def safe_dataframe(df, message="No records to display."):
 # =========================
 
 def send_telegram_alert(message):
-    """
-    Sends an alert to Telegram.
-
-    Recommended: set these as environment variables / Streamlit secrets:
-    - TELEGRAM_BOT_TOKEN
-    - TELEGRAM_CHAT_ID
-    """
-
-    bot_token = os.getenv(
-        "TELEGRAM_BOT_TOKEN",
-        "8598277757:AAEeo0U5WSaIttAimC8w7XtZtFiO-G-q3Fw"
-    ).strip()
-
-    chat_id = os.getenv(
-        "TELEGRAM_CHAT_ID",
-        "8172522699"
-    ).strip()
+    bot_token = st.secrets.get("TELEGRAM_BOT_TOKEN", os.getenv("TELEGRAM_BOT_TOKEN", "8598277757:AAHwXL5g46meLwZUI--PqNDUkoBt-OC8ZRg")).strip()
+    chat_id = st.secrets.get("TELEGRAM_CHAT_ID", os.getenv("TELEGRAM_CHAT_ID", "8172522699")).strip()
 
     if not bot_token or not chat_id:
         st.error("Telegram bot token or chat ID is missing.")
@@ -157,34 +150,21 @@ def send_telegram_alert(message):
     }
 
     try:
-        response = requests.post(
-            url,
-            json=payload,
-            timeout=10
-        )
-
-        try:
-            result = response.json()
-        except Exception:
-            result = {"raw_response": response.text}
+        response = requests.post(url, json=payload, timeout=10)
+        result = response.json()
 
         st.write("Telegram API response:")
         st.json(result)
-        
-        if st.sidebar.button("TEST TELEGRAM"):
-         send_telegram_alert("Test message from Streamlit sidebar")
- 
+
         if response.status_code == 200 and result.get("ok") is True:
             return True
 
-        description = result.get("description", response.text)
-        st.error(f"Telegram alert failed: {description}")
+        st.error(f"Telegram alert failed: {result.get('description', response.text)}")
         return False
 
     except Exception as e:
         st.error(f"Telegram alert failed: {e}")
         return False
-
 
 def send_whatsapp_alert(message):
     """
