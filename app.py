@@ -182,9 +182,9 @@ def send_email_alert(subject, message):
     - EMAIL_RECEIVER
     """
 
-    sender_email = os.getenv("EMAIL_SENDER")
-    sender_password = os.getenv("EMAIL_PASSWORD")
-    receiver_email = os.getenv("EMAIL_RECEIVER")
+    sender_email = os.getenv("abirami.kunasagaran@rohastecnic.com")
+    sender_password = os.getenv("xltb jvix uieg jfts")
+    receiver_email = os.getenv("abiarchu8615@gmail.com")
 
     if not all([sender_email, sender_password, receiver_email]):
         st.warning(
@@ -200,7 +200,7 @@ def send_email_alert(subject, message):
         msg["To"] = receiver_email
         msg.set_content(str(message))
 
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 587) as smtp:
             smtp.login(sender_email, sender_password)
             smtp.send_message(msg)
 
