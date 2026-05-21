@@ -128,20 +128,10 @@ def safe_dataframe(df, message="No records to display."):
 def send_telegram_alert(message):
     """
     Sends an alert to Telegram.
-
-    Required environment variables:
-    - TELEGRAM_BOT_TOKEN
-    - TELEGRAM_CHAT_ID
     """
-    bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
-    chat_id = os.getenv("TELEGRAM_CHAT_ID")
 
-    if not bot_token or not chat_id:
-        st.warning(
-            "Telegram credentials not configured. "
-            "Set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID."
-        )
-        return False
+    bot_token = "8598277757:AAGW0Gn0gIv-oTWpFHZ44V3aFHvJUuS4ifw"
+    chat_id = "8172522699"
 
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
 
@@ -154,7 +144,10 @@ def send_telegram_alert(message):
     try:
         response = requests.post(url, json=payload, timeout=10)
         response.raise_for_status()
+
+        st.success("Telegram alert sent successfully!")
         return True
+
     except Exception as e:
         st.error(f"Telegram alert failed: {e}")
         return False
