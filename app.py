@@ -313,7 +313,7 @@ def get_maintenance_decision(module, prediction):
 
     if module == "Water Quality Pollution Level":
 
-        if ticket["priority"] not in ["LOW", "MEDIUM", "HIGH", "CRITICAL"]:
+        if str(prediction).lower() in ["high", "critical", "severe"]:
             return (
                 "Critical",
                 "Increase aeration and inspect biological treatment stage immediately."
@@ -384,7 +384,6 @@ def get_maintenance_decision(module, prediction):
         "Unknown",
         "No maintenance recommendation available."
     )
-
 
 def show_maintenance_decision(risk, action):
     st.subheader("Recommended Maintenance Decision")
@@ -1381,8 +1380,7 @@ def show_maintenance_ticket(ticket):
         mime="text/csv"
     )
 
-    if ticket["priority"] not in ["LOW", "MEDIUM", "HIGH", "CRITICAL"]:
-        auto_send_critical_alert(ticket)
+    auto_send_critical_alert(ticket)
 
     render_alert_buttons(ticket)
 
