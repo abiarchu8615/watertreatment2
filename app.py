@@ -129,7 +129,7 @@ def send_telegram_alert(message):
     import requests
     import streamlit as st
 
-    bot_token = "8598277757:AAGW0Gn0gIv-oTWpFHZ44V3aFHvJUuS4ifw"
+    bot_token = "8598277757:AAEeo0U5WSaIttAimC8w7XtZtFiO-G-q3Fw"
     chat_id = "8172522699"
 
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
