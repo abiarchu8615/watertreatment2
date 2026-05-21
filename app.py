@@ -169,7 +169,10 @@ def send_telegram_alert(message):
 
         st.write("Telegram API response:")
         st.json(result)
-
+        
+        if st.sidebar.button("TEST TELEGRAM"):
+         send_telegram_alert("Test message from Streamlit sidebar")
+ 
         if response.status_code == 200 and result.get("ok") is True:
             return True
 
