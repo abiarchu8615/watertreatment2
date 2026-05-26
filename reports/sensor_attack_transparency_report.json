@@ -1,0 +1,74 @@
+{
+  "project_component": "sensor_attack",
+  "task": "Industrial sensor anomaly detection",
+  "target_variable": "Normal/Attack",
+  "model_name": "MLPClassifier Neural Network",
+  "model_type": "Classification",
+  "pipeline_summary": "Raw data is cleaned, transformed, preprocessed, trained using a neural network, evaluated, and deployed through Streamlit.",
+  "pipeline_steps": [
+    {
+      "step_number": 1,
+      "step_description": "Load industrial sensor anomaly dataset"
+    },
+    {
+      "step_number": 2,
+      "step_description": "Clean column names"
+    },
+    {
+      "step_number": 3,
+      "step_description": "Map Normal/Attack labels into binary classes"
+    },
+    {
+      "step_number": 4,
+      "step_description": "Remove Timestamp and target columns from input features"
+    },
+    {
+      "step_number": 5,
+      "step_description": "Select numeric sensor features"
+    },
+    {
+      "step_number": 6,
+      "step_description": "Split data into training and testing sets using stratified sampling"
+    },
+    {
+      "step_number": 7,
+      "step_description": "Impute missing numeric values using median"
+    },
+    {
+      "step_number": 8,
+      "step_description": "Scale sensor features using StandardScaler"
+    },
+    {
+      "step_number": 9,
+      "step_description": "Train MLPClassifier neural network"
+    },
+    {
+      "step_number": 10,
+      "step_description": "Generate predictions on test data"
+    },
+    {
+      "step_number": 11,
+      "step_description": "Evaluate model using accuracy, classification report, confusion matrix, and ROC-AUC"
+    },
+    {
+      "step_number": 12,
+      "step_description": "Export ROC curve data for Power BI"
+    },
+    {
+      "step_number": 13,
+      "step_description": "Save trained model using joblib"
+    },
+    {
+      "step_number": 14,
+      "step_description": "Save metrics report as JSON"
+    }
+  ],
+  "transparency_notes": [
+    "The model pipeline is shown to support stakeholder understanding.",
+    "Preprocessing steps are included to explain how raw data becomes model-ready data.",
+    "Evaluation metrics are saved separately in the metrics JSON files.",
+    "ROC curve CSV files are exported for Power BI technical visualization where applicable.",
+    "The trained model is saved using joblib and reused during deployment."
+  ],
+  "deployment_use": "This transparency report can be displayed directly in the Streamlit Cloud application."
+}

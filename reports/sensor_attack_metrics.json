@@ -2,6 +2,22 @@
   "task": "Industrial sensor anomaly detection using Neural Network",
   "target": "Normal/Attack",
   "model": "MLPClassifier Neural Network",
+  "ml_pipeline": [
+    "Load industrial sensor anomaly dataset",
+    "Clean column names",
+    "Map Normal/Attack labels into binary classes",
+    "Remove Timestamp and target columns from input features",
+    "Select numeric sensor features",
+    "Split data into training and testing sets using stratified sampling",
+    "Impute missing numeric values using median",
+    "Scale sensor features using StandardScaler",
+    "Train MLPClassifier neural network",
+    "Generate predictions on test data",
+    "Evaluate model using accuracy, classification report, confusion matrix, and ROC-AUC",
+    "Export ROC curve data for Power BI",
+    "Save trained model using joblib",
+    "Save metrics report as JSON"
+  ],
   "accuracy": 0.99656,
   "classification_report": {
     "0": {
@@ -39,5 +55,6 @@
       34,
       12466
     ]
-  ]
+  ],
+  "roc_auc_weighted": 0.9999350528000001
 }

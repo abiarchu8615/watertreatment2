@@ -1,0 +1,8 @@
+{
+  "task": "energy ensemble regression using VotingRegressor",
+  "target": "regression_target",
+  "model": "VotingRegressor Ensemble: Linear Regression + Random Forest + Neural Network",
+  "ensemble_method": "Average Voting Regression Ensemble",
+  "mae": 29886.50032843509,
+  "r2_score": 0.20545320739221473
+}

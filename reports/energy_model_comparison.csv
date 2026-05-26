@@ -1,0 +1,5 @@
+task_name,model_name,mae,r2_score
+energy,Linear Regression,31096.422985658843,0.13879476925811352
+energy,Decision Tree Regressor,39542.49710982659,-0.3138810494772988
+energy,Random Forest Regressor,27609.8710549133,0.3267610133077391
+energy,Neural Network Regressor,35696.645492063864,-0.2954688813642863

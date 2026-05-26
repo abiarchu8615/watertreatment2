@@ -1,0 +1,15 @@
+step_number,pipeline_step
+1,Load industrial sensor anomaly dataset
+2,Clean column names
+3,Map Normal/Attack labels into binary classes
+4,Remove Timestamp and target columns from input features
+5,Select numeric sensor features
+6,Split data into training and testing sets using stratified sampling
+7,Impute missing numeric values using median
+8,Scale sensor features using StandardScaler
+9,Train MLPClassifier neural network
+10,Generate predictions on test data
+11,"Evaluate model using accuracy, classification report, confusion matrix, and ROC-AUC"
+12,Export ROC curve data for Power BI
+13,Save trained model using joblib
+14,Save metrics report as JSON

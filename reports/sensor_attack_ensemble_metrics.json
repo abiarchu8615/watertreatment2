@@ -1,0 +1,45 @@
+{
+  "task": "sensor_attack ensemble classification using soft voting",
+  "target": "classification_target",
+  "model": "VotingClassifier Ensemble: Logistic Regression + Random Forest + SVM + Neural Network",
+  "ensemble_method": "Soft Voting Ensemble",
+  "accuracy": 0.99804,
+  "classification_report": {
+    "0": {
+      "precision": 0.9972046961105343,
+      "recall": 0.99888,
+      "f1-score": 0.9980416450181847,
+      "support": 12500.0
+    },
+    "1": {
+      "precision": 0.9988781152335925,
+      "recall": 0.9972,
+      "f1-score": 0.9980383522158613,
+      "support": 12500.0
+    },
+    "accuracy": 0.99804,
+    "macro avg": {
+      "precision": 0.9980414056720635,
+      "recall": 0.99804,
+      "f1-score": 0.998039998617023,
+      "support": 25000.0
+    },
+    "weighted avg": {
+      "precision": 0.9980414056720635,
+      "recall": 0.99804,
+      "f1-score": 0.998039998617023,
+      "support": 25000.0
+    }
+  },
+  "confusion_matrix": [
+    [
+      12486,
+      14
+    ],
+    [
+      35,
+      12465
+    ]
+  ],
+  "roc_auc_weighted": 0.9999796288000001
+}

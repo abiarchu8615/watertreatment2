@@ -1,0 +1,78 @@
+{
+  "project_component": "energy",
+  "task": "Plant energy consumption prediction",
+  "target_variable": "Energy Consumption",
+  "model_name": "MLPRegressor Neural Network",
+  "model_type": "Regression",
+  "pipeline_summary": "Raw data is cleaned, transformed, preprocessed, trained using a neural network, evaluated, and deployed through Streamlit.",
+  "pipeline_steps": [
+    {
+      "step_number": 1,
+      "step_description": "Load plant energy consumption dataset"
+    },
+    {
+      "step_number": 2,
+      "step_description": "Clean column names"
+    },
+    {
+      "step_number": 3,
+      "step_description": "Remove unnecessary index columns"
+    },
+    {
+      "step_number": 4,
+      "step_description": "Separate target variable Energy Consumption from input features"
+    },
+    {
+      "step_number": 5,
+      "step_description": "Split data into training and testing sets"
+    },
+    {
+      "step_number": 6,
+      "step_description": "Apply preprocessing using ColumnTransformer"
+    },
+    {
+      "step_number": 7,
+      "step_description": "Impute missing numeric values using median"
+    },
+    {
+      "step_number": 8,
+      "step_description": "Scale numeric features using StandardScaler"
+    },
+    {
+      "step_number": 9,
+      "step_description": "Impute missing categorical values using most frequent value"
+    },
+    {
+      "step_number": 10,
+      "step_description": "Encode categorical features using OneHotEncoder"
+    },
+    {
+      "step_number": 11,
+      "step_description": "Train MLPRegressor neural network"
+    },
+    {
+      "step_number": 12,
+      "step_description": "Generate predictions on test data"
+    },
+    {
+      "step_number": 13,
+      "step_description": "Evaluate regression model using MAE and R2 score"
+    },
+    {
+      "step_number": 14,
+      "step_description": "Save trained model using joblib"
+    },
+    {
+      "step_number": 15,
+      "step_description": "Save metrics report as JSON"
+    }
+  ],
+  "transparency_notes": [
+    "The model pipeline is shown to support stakeholder understanding.",
+    "Preprocessing steps are included to explain how raw data becomes model-ready data.",
+    "Evaluation metrics are saved separately in the metrics JSON files.",
+    "ROC curve CSV files are exported for Power BI technical visualization where applicable.",
+    "The trained model is saved using joblib and reused during deployment."
+  ],
+  "deployment_use": "This transparency report can be displayed directly in the Streamlit Cloud application."
+}

@@ -2,6 +2,24 @@
   "task": "Water quality pollution level classification using Neural Network",
   "target": "Pollution_Level",
   "model": "MLPClassifier Neural Network",
+  "ml_pipeline": [
+    "Load Water Quality Dataset",
+    "Clean column names",
+    "Convert Timestamp into hour and dayofweek features",
+    "Separate target variable Pollution_Level from input features",
+    "Split data into training and testing sets using stratified sampling",
+    "Apply preprocessing using ColumnTransformer",
+    "Impute missing numeric values using median",
+    "Scale numeric features using StandardScaler",
+    "Impute missing categorical values using most frequent value",
+    "Encode categorical features using OneHotEncoder",
+    "Train MLPClassifier neural network",
+    "Generate predictions on test data",
+    "Evaluate model using accuracy, classification report, confusion matrix, and ROC-AUC",
+    "Export ROC curve data for Power BI",
+    "Save trained model using joblib",
+    "Save metrics report as JSON"
+  ],
   "accuracy": 0.916,
   "classification_report": {
     "0": {
@@ -52,5 +70,6 @@
       0,
       229
     ]
-  ]
+  ],
+  "roc_auc_weighted": 0.5054490159395345
 }
