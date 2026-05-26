@@ -2958,7 +2958,6 @@ if selected_page == "Sensor Anomaly":
         st.warning("Sensor anomaly metrics not found. Run python train_models.py first.")
 
 
-Replace ONLY the model loading section inside your AI Prediction Demo page with this edited version so your app uses the ensemble (“best”) models.
 
 # =========================
 # AI PREDICTION DEMO PAGE
