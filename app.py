@@ -2958,6 +2958,8 @@ if selected_page == "Sensor Anomaly":
         st.warning("Sensor anomaly metrics not found. Run python train_models.py first.")
 
 
+Replace ONLY the model loading section inside your AI Prediction Demo page with this edited version so your app uses the ensemble (“best”) models.
+
 # =========================
 # AI PREDICTION DEMO PAGE
 # =========================
@@ -2975,10 +2977,17 @@ if selected_page == "AI Prediction Demo":
         ]
     )
 
+    # =========================
+    # WATER QUALITY
+    # =========================
+
     if model_choice == "Water Quality Pollution Level":
-        model_path = MODELS / "water_quality_model.joblib"
+
+        # USING BEST ENSEMBLE MODEL
+        model_path = MODELS / "water_quality_ensemble_model.joblib"
 
         if model_path.exists():
+
             model = joblib.load(model_path)
 
             sample = (
@@ -3002,6 +3011,7 @@ if selected_page == "AI Prediction Demo":
             X = edited.drop(columns=["Timestamp"])
 
             if st.button("Predict water quality"):
+
                 pred = model.predict(X)[0]
 
                 st.success(f"Predicted Pollution Level: {pred}")
@@ -3014,18 +3024,27 @@ if selected_page == "AI Prediction Demo":
                 show_maintenance_decision(risk, action)
 
         else:
-            st.warning("Train models first using: python train_models.py")
+            st.warning(
+                "Missing model: water_quality_ensemble_model.joblib"
+            )
+
+    # =========================
+    # LEAK / BURST
+    # =========================
 
     elif model_choice in ["Leak Status", "Burst Status"]:
+
+        # USING BEST ENSEMBLE MODELS
         fname = (
-            "leak_status_model.joblib"
+            "leak_status_ensemble_model.joblib"
             if model_choice == "Leak Status"
-            else "burst_status_model.joblib"
+            else "burst_status_ensemble_model.joblib"
         )
 
         model_path = MODELS / fname
 
         if model_path.exists():
+
             model = joblib.load(model_path)
 
             sample = (
@@ -3050,6 +3069,7 @@ if selected_page == "AI Prediction Demo":
             X = edited.drop(columns=["Timestamp"])
 
             if st.button("Predict leak/burst"):
+
                 pred = model.predict(X)[0]
 
                 st.success(f"Predicted {model_choice}: {pred}")
@@ -3062,12 +3082,19 @@ if selected_page == "AI Prediction Demo":
                 show_maintenance_decision(risk, action)
 
         else:
-            st.warning("Train models first using: python train_models.py")
+            st.warning(f"Missing model: {fname}")
+
+    # =========================
+    # ENERGY
+    # =========================
 
     else:
-        model_path = MODELS / "energy_model.joblib"
+
+        # USING BEST ENSEMBLE MODEL
+        model_path = MODELS / "energy_ensemble_model.joblib"
 
         if model_path.exists():
+
             model = joblib.load(model_path)
 
             sample = (
@@ -3084,9 +3111,12 @@ if selected_page == "AI Prediction Demo":
             edited = st.data_editor(sample, num_rows="fixed")
 
             if st.button("Predict energy consumption"):
+
                 pred = model.predict(edited)[0]
 
-                st.success(f"Predicted Energy Consumption: {pred:,.2f}")
+                st.success(
+                    f"Predicted Energy Consumption: {pred:,.2f}"
+                )
 
                 risk, action = get_maintenance_decision(
                     "Energy Consumption",
@@ -3096,7 +3126,9 @@ if selected_page == "AI Prediction Demo":
                 show_maintenance_decision(risk, action)
 
         else:
-            st.warning("Train models first using: python train_models.py")
+            st.warning(
+                "Missing model: energy_ensemble_model.joblib"
+            )
 
 
 # =========================
