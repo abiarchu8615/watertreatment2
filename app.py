@@ -2625,7 +2625,12 @@ def render_multi_agent_report(report):
 # OVERVIEW PAGE
 # =========================
 
+# =========================
+# OVERVIEW PAGE
+# =========================
+
 if selected_page == "Overview":
+
     st.subheader("Digital Twin Concept")
 
     c1, c2, c3, c4 = st.columns(4)
@@ -2650,34 +2655,33 @@ if selected_page == "Overview":
         len(load_csv("merged_sample.csv", nrows=200000))
     )
 
- st.markdown("""
-### Core AI Modules
+    st.markdown("""
+    ### Core AI Modules
 
-- **Overview:** shows the complete water treatment AI dashboard and key system insights.
+    - **Overview:** shows the complete water treatment AI dashboard and key system insights.
 
-- **Water Quality AI:** predicts pollution level from pH, turbidity, DO, BOD, and heavy metals.
+    - **Water Quality AI:** predicts pollution level from pH, turbidity, DO, BOD, and heavy metals.
 
-- **Leak Detection AI:** detects leak and burst risk from pressure, flow, and temperature sensors.
+    - **Leak Detection AI:** detects leak and burst risk from pressure, flow, and temperature sensors.
 
-- **Energy Digital Twin:** predicts energy consumption based on process and environmental conditions.
+    - **Energy Digital Twin:** predicts energy consumption based on process and environmental conditions.
 
-- **Sensor Anomaly AI:** detects abnormal or attack-like behaviour in plant sensor data.
+    - **Sensor Anomaly AI:** detects abnormal or attack-like behaviour in plant sensor data.
 
-- **AI Prediction Demo:** demonstrates AI-based prediction results using sample or live input data.
+    - **AI Prediction Demo:** demonstrates AI-based prediction results using sample or live input data.
 
-- **Failure Trend Prediction:** forecasts possible equipment or process failures based on historical trends.
+    - **Failure Trend Prediction:** forecasts possible equipment or process failures based on historical trends.
 
-- **AI Chatbot:** provides interactive support and answers questions about water treatment operations.
+    - **AI Chatbot:** provides interactive support and answers questions about water treatment operations.
 
-- **Optimization AI:** recommends optimal operating conditions to improve efficiency, reduce cost, and maintain treatment quality.
+    - **Optimization AI:** recommends optimal operating conditions to improve efficiency, reduce cost, and maintain treatment quality.
 
-- **Multi-Agent AI:** coordinates multiple AI agents to monitor, predict, optimize, and support decision-making across the system.
+    - **Multi-Agent AI:** coordinates multiple AI agents to monitor, predict, optimize, and support decision-making across the system.
 
-### Predictive Maintenance Workflow
+    ### Predictive Maintenance Workflow
 
-Sensor Data → AI Prediction → Risk Detection → Maintenance Decision → Failure Trend → Prescriptive Action
-""")
-
+    Sensor Data → AI Prediction → Risk Detection → Maintenance Decision → Failure Trend → Prescriptive Action
+    """)
 
 # =========================
 # WATER QUALITY PAGE
