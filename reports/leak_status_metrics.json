@@ -1,62 +1,43 @@
 {
-  "task": "Leak Status classification using Neural Network",
-  "target": "Leak Status",
-  "model": "MLPClassifier Neural Network",
-  "ml_pipeline": [
-    "Load water leak detection dataset",
-    "Clean column names",
-    "Convert Timestamp into hour, minute, and dayofweek features",
-    "Separate target variable Leak Status from input features",
-    "Split data into training and testing sets",
-    "Apply preprocessing using ColumnTransformer",
-    "Impute missing numeric values using median",
-    "Scale numeric features using StandardScaler",
-    "Impute missing categorical values using most frequent value",
-    "Encode categorical features using OneHotEncoder",
-    "Train MLPClassifier neural network",
-    "Generate predictions on test data",
-    "Evaluate model using accuracy, classification report, confusion matrix, and ROC-AUC",
-    "Export ROC curve data for Power BI",
-    "Save trained model using joblib",
-    "Save metrics report as JSON"
-  ],
+  "task": "Leak Status process optimization",
+  "model": "Decision Tree",
   "accuracy": 0.98,
   "classification_report": {
     "0": {
-      "precision": 0.98,
-      "recall": 1.0,
-      "f1-score": 0.98989898989899,
+      "precision": 0.9838709677419355,
+      "recall": 0.9959183673469387,
+      "f1-score": 0.9898580121703854,
       "support": 245.0
     },
     "1": {
-      "precision": 0.0,
-      "recall": 0.0,
-      "f1-score": 0.0,
+      "precision": 0.5,
+      "recall": 0.2,
+      "f1-score": 0.2857142857142857,
       "support": 5.0
     },
     "accuracy": 0.98,
     "macro avg": {
-      "precision": 0.49,
-      "recall": 0.5,
-      "f1-score": 0.494949494949495,
+      "precision": 0.7419354838709677,
+      "recall": 0.5979591836734693,
+      "f1-score": 0.6377861489423355,
       "support": 250.0
     },
     "weighted avg": {
-      "precision": 0.9604,
+      "precision": 0.9741935483870968,
       "recall": 0.98,
-      "f1-score": 0.9701010101010101,
+      "f1-score": 0.9757751376412633,
       "support": 250.0
     }
   },
   "confusion_matrix": [
     [
-      245,
-      0
+      244,
+      1
     ],
     [
-      5,
-      0
+      4,
+      1
     ]
   ],
-  "roc_auc_weighted": 0.27999999999999997
+  "roc_auc_weighted": 0.5979591836734693
 }

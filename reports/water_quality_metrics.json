@@ -1,75 +1,56 @@
 {
-  "task": "Water quality pollution level classification using Neural Network",
-  "target": "Pollution_Level",
-  "model": "MLPClassifier Neural Network",
-  "ml_pipeline": [
-    "Load Water Quality Dataset",
-    "Clean column names",
-    "Convert Timestamp into hour and dayofweek features",
-    "Separate target variable Pollution_Level from input features",
-    "Split data into training and testing sets using stratified sampling",
-    "Apply preprocessing using ColumnTransformer",
-    "Impute missing numeric values using median",
-    "Scale numeric features using StandardScaler",
-    "Impute missing categorical values using most frequent value",
-    "Encode categorical features using OneHotEncoder",
-    "Train MLPClassifier neural network",
-    "Generate predictions on test data",
-    "Evaluate model using accuracy, classification report, confusion matrix, and ROC-AUC",
-    "Export ROC curve data for Power BI",
-    "Save trained model using joblib",
-    "Save metrics report as JSON"
-  ],
-  "accuracy": 0.916,
+  "task": "Water quality target configuration",
+  "model": "Decision Tree",
+  "accuracy": 0.972,
   "classification_report": {
     "0": {
-      "precision": 0.0,
-      "recall": 0.0,
-      "f1-score": 0.0,
+      "precision": 0.3333333333333333,
+      "recall": 1.0,
+      "f1-score": 0.5,
       "support": 1.0
     },
     "1": {
-      "precision": 0.0,
-      "recall": 0.0,
-      "f1-score": 0.0,
+      "precision": 0.8421052631578947,
+      "recall": 0.8,
+      "f1-score": 0.8205128205128205,
       "support": 20.0
     },
     "2": {
-      "precision": 0.916,
-      "recall": 1.0,
-      "f1-score": 0.9561586638830898,
+      "precision": 0.9912280701754386,
+      "recall": 0.9868995633187773,
+      "f1-score": 0.9890590809628009,
       "support": 229.0
     },
-    "accuracy": 0.916,
+    "accuracy": 0.972,
     "macro avg": {
-      "precision": 0.30533333333333335,
-      "recall": 0.3333333333333333,
-      "f1-score": 0.3187195546276966,
+      "precision": 0.7222222222222222,
+      "recall": 0.9289665211062591,
+      "f1-score": 0.7698573004918737,
       "support": 250.0
     },
     "weighted avg": {
-      "precision": 0.839056,
-      "recall": 0.916,
-      "f1-score": 0.8758413361169103,
+      "precision": 0.9766666666666667,
+      "recall": 0.972,
+      "f1-score": 0.9736191438029512,
       "support": 250.0
     }
   },
   "confusion_matrix": [
     [
+      1,
       0,
-      0,
-      1
+      0
+    ],
+    [
+      2,
+      16,
+      2
     ],
     [
       0,
-      0,
-      20
-    ],
-    [
-      0,
-      0,
-      229
+      3,
+      226
     ]
   ],
-  "roc_auc_weighted": 0.5054490159395345
+  "roc_auc_weighted": 0.9418431489934895
 }

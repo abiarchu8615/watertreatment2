@@ -1,17 +1,4 @@
 step_number,pipeline_step
-1,Load water leak detection dataset
-2,Clean column names
-3,"Convert Timestamp into hour, minute, and dayofweek features"
-4,Separate target variable Burst Status from input features
-5,Split data into training and testing sets
-6,Apply preprocessing using ColumnTransformer
-7,Impute missing numeric values using median
-8,Scale numeric features using StandardScaler
-9,Impute missing categorical values using most frequent value
-10,Encode categorical features using OneHotEncoder
-11,Train MLPClassifier neural network
-12,Generate predictions on test data
-13,"Evaluate model using accuracy, classification report, confusion matrix, and ROC-AUC"
-14,Export ROC curve data for Power BI
-15,Save trained model using joblib
-16,Save metrics report as JSON
+1,Load Data
+2,Dynamic benchmark processing via Logistic Regression
+3,Store production binary array

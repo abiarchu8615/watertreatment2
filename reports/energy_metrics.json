@@ -1,24 +1,6 @@
 {
-  "task": "Plant energy consumption prediction using Neural Network",
-  "target": "Energy Consumption",
-  "model": "MLPRegressor Neural Network",
-  "ml_pipeline": [
-    "Load plant energy consumption dataset",
-    "Clean column names",
-    "Remove unnecessary index columns",
-    "Separate target variable Energy Consumption from input features",
-    "Split data into training and testing sets",
-    "Apply preprocessing using ColumnTransformer",
-    "Impute missing numeric values using median",
-    "Scale numeric features using StandardScaler",
-    "Impute missing categorical values using most frequent value",
-    "Encode categorical features using OneHotEncoder",
-    "Train MLPRegressor neural network",
-    "Generate predictions on test data",
-    "Evaluate regression model using MAE and R2 score",
-    "Save trained model using joblib",
-    "Save metrics report as JSON"
-  ],
-  "mae": 35696.645492063864,
-  "r2_score": -0.2954688813642863
+  "task": "Plant grid calculations",
+  "model": "Random Forest Regressor",
+  "mae": 27609.8710549133,
+  "r2_score": 0.3267610133077391
 }

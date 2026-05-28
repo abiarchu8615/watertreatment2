@@ -1,10 +1,10 @@
 {
   "project_component": "water_quality",
-  "task": "Water quality pollution level classification",
+  "task": "Pollution classification",
   "target_variable": "Pollution_Level",
-  "model_name": "MLPClassifier Neural Network",
+  "model_name": "Decision Tree",
   "model_type": "Classification",
-  "pipeline_summary": "Raw data is cleaned, transformed, preprocessed, trained using a neural network, evaluated, and deployed through Streamlit.",
+  "pipeline_summary": "Raw data is cleaned, transformed, preprocessed, dynamically evaluated across multiple models, and deployed through Streamlit.",
   "pipeline_steps": [
     {
       "step_number": 1,
@@ -12,71 +12,20 @@
     },
     {
       "step_number": 2,
-      "step_description": "Clean column names"
+      "step_description": "Extract date engineering metrics"
     },
     {
       "step_number": 3,
-      "step_description": "Convert Timestamp into hour and dayofweek features"
+      "step_description": "Train and dynamically select best configuration (Winner: Decision Tree)"
     },
     {
       "step_number": 4,
-      "step_description": "Separate target variable Pollution_Level from input features"
-    },
-    {
-      "step_number": 5,
-      "step_description": "Split data into training and testing sets using stratified sampling"
-    },
-    {
-      "step_number": 6,
-      "step_description": "Apply preprocessing using ColumnTransformer"
-    },
-    {
-      "step_number": 7,
-      "step_description": "Impute missing numeric values using median"
-    },
-    {
-      "step_number": 8,
-      "step_description": "Scale numeric features using StandardScaler"
-    },
-    {
-      "step_number": 9,
-      "step_description": "Impute missing categorical values using most frequent value"
-    },
-    {
-      "step_number": 10,
-      "step_description": "Encode categorical features using OneHotEncoder"
-    },
-    {
-      "step_number": 11,
-      "step_description": "Train MLPClassifier neural network"
-    },
-    {
-      "step_number": 12,
-      "step_description": "Generate predictions on test data"
-    },
-    {
-      "step_number": 13,
-      "step_description": "Evaluate model using accuracy, classification report, confusion matrix, and ROC-AUC"
-    },
-    {
-      "step_number": 14,
-      "step_description": "Export ROC curve data for Power BI"
-    },
-    {
-      "step_number": 15,
-      "step_description": "Save trained model using joblib"
-    },
-    {
-      "step_number": 16,
-      "step_description": "Save metrics report as JSON"
+      "step_description": "Export production matrix logs"
     }
   ],
   "transparency_notes": [
-    "The model pipeline is shown to support stakeholder understanding.",
-    "Preprocessing steps are included to explain how raw data becomes model-ready data.",
-    "Evaluation metrics are saved separately in the metrics JSON files.",
-    "ROC curve CSV files are exported for Power BI technical visualization where applicable.",
-    "The trained model is saved using joblib and reused during deployment."
+    "The model pipeline evaluates standalone and ensemble configurations dynamically.",
+    "The highest performing model structure is automatically targeted and dumped for production production deployment."
   ],
   "deployment_use": "This transparency report can be displayed directly in the Streamlit Cloud application."
 }

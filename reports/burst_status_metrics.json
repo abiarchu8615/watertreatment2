@@ -1,50 +1,31 @@
 {
-  "task": "Burst Status classification using Neural Network",
-  "target": "Burst Status",
-  "model": "MLPClassifier Neural Network",
-  "ml_pipeline": [
-    "Load water leak detection dataset",
-    "Clean column names",
-    "Convert Timestamp into hour, minute, and dayofweek features",
-    "Separate target variable Burst Status from input features",
-    "Split data into training and testing sets",
-    "Apply preprocessing using ColumnTransformer",
-    "Impute missing numeric values using median",
-    "Scale numeric features using StandardScaler",
-    "Impute missing categorical values using most frequent value",
-    "Encode categorical features using OneHotEncoder",
-    "Train MLPClassifier neural network",
-    "Generate predictions on test data",
-    "Evaluate model using accuracy, classification report, confusion matrix, and ROC-AUC",
-    "Export ROC curve data for Power BI",
-    "Save trained model using joblib",
-    "Save metrics report as JSON"
-  ],
-  "accuracy": 0.992,
+  "task": "Burst Status process optimization",
+  "model": "Logistic Regression",
+  "accuracy": 0.996,
   "classification_report": {
     "0": {
-      "precision": 0.992,
+      "precision": 0.9959839357429718,
       "recall": 1.0,
-      "f1-score": 0.9959839357429718,
+      "f1-score": 0.9979879275653923,
       "support": 248.0
     },
     "1": {
-      "precision": 0.0,
-      "recall": 0.0,
-      "f1-score": 0.0,
+      "precision": 1.0,
+      "recall": 0.5,
+      "f1-score": 0.6666666666666666,
       "support": 2.0
     },
-    "accuracy": 0.992,
+    "accuracy": 0.996,
     "macro avg": {
-      "precision": 0.496,
-      "recall": 0.5,
-      "f1-score": 0.4979919678714859,
+      "precision": 0.9979919678714859,
+      "recall": 0.75,
+      "f1-score": 0.8323272971160295,
       "support": 250.0
     },
     "weighted avg": {
-      "precision": 0.9840639999999999,
-      "recall": 0.992,
-      "f1-score": 0.9880160642570281,
+      "precision": 0.9960160642570282,
+      "recall": 0.996,
+      "f1-score": 0.9953373574782025,
       "support": 250.0
     }
   },
@@ -54,9 +35,9 @@
       0
     ],
     [
-      2,
-      0
+      1,
+      1
     ]
   ],
-  "roc_auc_weighted": 0.06451612903225806
+  "roc_auc_weighted": 1.0
 }

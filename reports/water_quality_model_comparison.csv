@@ -1,5 +1,6 @@
-task_name,model_name,accuracy,precision_weighted,recall_weighted,f1_weighted,roc_auc_weighted
-water_quality,Logistic Regression,0.928,0.9189535864978904,0.928,0.9185493562231759,0.9093826935069471
-water_quality,Decision Tree,0.972,0.9766666666666667,0.972,0.9736191438029512,0.9418431489934895
-water_quality,Random Forest,0.964,0.9589263226225251,0.964,0.9584564962934062,0.9970573124797325
-water_quality,Neural Network,0.916,0.839056,0.916,0.8758413361169103,0.5054490159395345
+task_name,model_name,accuracy,precision_weighted,recall_weighted,f1_weighted
+water_quality,Logistic Regression,0.928,0.9189535864978904,0.928,0.9185493562231759
+water_quality,Decision Tree,0.972,0.9766666666666667,0.972,0.9736191438029512
+water_quality,Random Forest,0.964,0.9589263226225251,0.964,0.9584564962934062
+water_quality,Neural Network,0.916,0.839056,0.916,0.8758413361169103
+water_quality,Voting Ensemble,0.936,0.9445596707818931,0.936,0.917497175141243

@@ -1,60 +1,43 @@
 {
-  "task": "Industrial sensor anomaly detection using Neural Network",
-  "target": "Normal/Attack",
-  "model": "MLPClassifier Neural Network",
-  "ml_pipeline": [
-    "Load industrial sensor anomaly dataset",
-    "Clean column names",
-    "Map Normal/Attack labels into binary classes",
-    "Remove Timestamp and target columns from input features",
-    "Select numeric sensor features",
-    "Split data into training and testing sets using stratified sampling",
-    "Impute missing numeric values using median",
-    "Scale sensor features using StandardScaler",
-    "Train MLPClassifier neural network",
-    "Generate predictions on test data",
-    "Evaluate model using accuracy, classification report, confusion matrix, and ROC-AUC",
-    "Export ROC curve data for Power BI",
-    "Save trained model using joblib",
-    "Save metrics report as JSON"
-  ],
-  "accuracy": 0.99656,
+  "task": "SCADA security enforcement data",
+  "model": "Random Forest",
+  "accuracy": 0.9996,
   "classification_report": {
     "0": {
-      "precision": 0.9972760775516744,
-      "recall": 0.99584,
-      "f1-score": 0.9965575214154191,
+      "precision": 0.9998399231631183,
+      "recall": 0.99936,
+      "f1-score": 0.9995999039769544,
       "support": 12500.0
     },
     "1": {
-      "precision": 0.9958459817862279,
-      "recall": 0.99728,
-      "f1-score": 0.996562475017987,
+      "precision": 0.9993603070526147,
+      "recall": 0.99984,
+      "f1-score": 0.9996000959769655,
       "support": 12500.0
     },
-    "accuracy": 0.99656,
+    "accuracy": 0.9996,
     "macro avg": {
-      "precision": 0.9965610296689511,
-      "recall": 0.99656,
-      "f1-score": 0.996559998216703,
+      "precision": 0.9996001151078665,
+      "recall": 0.9996,
+      "f1-score": 0.99959999997696,
       "support": 25000.0
     },
     "weighted avg": {
-      "precision": 0.9965610296689511,
-      "recall": 0.99656,
-      "f1-score": 0.9965599982167029,
+      "precision": 0.9996001151078666,
+      "recall": 0.9996,
+      "f1-score": 0.9995999999769599,
       "support": 25000.0
     }
   },
   "confusion_matrix": [
     [
-      12448,
-      52
+      12492,
+      8
     ],
     [
-      34,
-      12466
+      2,
+      12498
     ]
   ],
-  "roc_auc_weighted": 0.9999350528000001
+  "roc_auc_weighted": 0.9999996064000001
 }

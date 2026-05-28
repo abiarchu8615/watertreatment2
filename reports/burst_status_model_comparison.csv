@@ -1,5 +1,6 @@
-task_name,model_name,accuracy,precision_weighted,recall_weighted,f1_weighted,roc_auc_weighted
-burst_status,Logistic Regression,0.996,0.9960160642570282,0.996,0.9953373574782025,1.0
-burst_status,Decision Tree,0.996,0.9960160642570282,0.996,0.9953373574782025,0.75
-burst_status,Random Forest,0.992,0.9840639999999999,0.992,0.9880160642570281,1.0
-burst_status,Neural Network,0.992,0.9840639999999999,0.992,0.9880160642570281,0.06451612903225806
+task_name,model_name,accuracy,precision_weighted,recall_weighted,f1_weighted
+burst_status,Logistic Regression,0.996,0.9960160642570282,0.996,0.9953373574782025
+burst_status,Decision Tree,0.996,0.9960160642570282,0.996,0.9953373574782025
+burst_status,Random Forest,0.992,0.9840639999999999,0.992,0.9880160642570281
+burst_status,Neural Network,0.992,0.9840639999999999,0.992,0.9880160642570281
+burst_status,Voting Ensemble,0.996,0.9960160642570282,0.996,0.9953373574782025
