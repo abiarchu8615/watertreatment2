@@ -2878,7 +2878,7 @@ if selected_page == "Water Quality":
     if metrics:
         show_classification_metrics(
             metrics,
-            "Water Quality Neural Network Model Performance"
+            "Water Quality Model Performance"
         )
     else:
         st.warning("Model metrics not found. Run python train_models.py first.")
@@ -2951,7 +2951,7 @@ if selected_page == "Leak Detection":
     if leak_metrics:
         show_classification_metrics(
             leak_metrics,
-            "Leak Detection Neural Network Model Performance"
+            "Leak Detection  Model Performance"
         )
     else:
         st.warning("Leak model metrics not found. Run python train_models.py first.")
@@ -2959,7 +2959,7 @@ if selected_page == "Leak Detection":
     if burst_metrics:
         show_classification_metrics(
             burst_metrics,
-            "Burst Detection Neural Network Model Performance"
+            "Burst Detection Model Performance"
         )
     else:
         st.warning("Burst model metrics not found. Run python train_models.py first.")
@@ -3032,7 +3032,7 @@ if selected_page == "Energy Digital Twin":
     if metrics:
         show_regression_metrics(
             metrics,
-            "Energy Prediction Neural Network Model Performance"
+            "Energy Prediction  Model Performance"
         )
     else:
         st.warning("Energy model metrics not found. Run python train_models.py first.")
@@ -3109,7 +3109,7 @@ if selected_page == "Sensor Anomaly":
     if metrics:
         show_classification_metrics(
             metrics,
-            "Sensor Anomaly Neural Network Model Performance"
+            "Sensor Anomaly  Model Performance"
         )
     else:
         st.warning("Sensor anomaly metrics not found. Run python train_models.py first.")
