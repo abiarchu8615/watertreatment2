@@ -1449,6 +1449,21 @@ def build_all_maintenance_tickets(trend_df, module_choice, value_col, direction,
 def detect_copilot_intent(user_query):
     q = user_query.lower()
 
+    if any(word in q for word in [
+        "carbon",
+        "co2",
+        "co₂",
+        "emission",
+        "emissions",
+        "sustainability",
+        "sustainable",
+        "esg",
+        "green",
+        "carbon footprint",
+        "carbon mission"
+    ]):
+        return "carbon"
+
     if any(word in q for word in ["why", "cause", "caused", "root cause", "reason"]):
         return "root_cause"
 
@@ -1665,6 +1680,84 @@ def generate_operations_copilot_response(user_query, default_module):
     if intent is None:
         return None, None
 
+    if intent == "carbon":
+        df = load_csv("Data-Melbourne_F_fixed.csv")
+
+        emission_factor = 0.584
+        df["Carbon Emission (kgCO2)"] = df["Energy Consumption"] * emission_factor
+
+        total_carbon = df["Carbon Emission (kgCO2)"].sum()
+        avg_carbon = df["Carbon Emission (kgCO2)"].mean()
+        max_carbon = df["Carbon Emission (kgCO2)"].max()
+        total_energy = df["Energy Consumption"].sum()
+        avg_energy = df["Energy Consumption"].mean()
+
+        sustainability_score = max(0, 100 - (avg_carbon / 10))
+
+        if avg_carbon > 500:
+            carbon_status = "High carbon impact detected"
+            carbon_action = "Reduce pump load during peak hours, optimize aeration/equipment scheduling, and prioritize energy-efficient operating conditions."
+        else:
+            carbon_status = "Carbon emission is within the sustainable operating range"
+            carbon_action = "Continue monitoring energy consumption and maintain optimized low-carbon operation."
+
+        response = f"""
+### Carbon Mission AI Analysis
+
+**Total Energy Consumption:** {total_energy:,.2f}
+
+**Average Energy Consumption:** {avg_energy:,.2f}
+
+**Total CO₂ Emission:** {total_carbon:,.2f} kg
+
+**Average CO₂ Emission:** {avg_carbon:,.2f} kg
+
+**Peak CO₂ Emission:** {max_carbon:,.2f} kg
+
+**Sustainability Score:** {sustainability_score:.1f}/100
+
+### AI Sustainability Assessment
+
+**Status:** {carbon_status}
+
+Carbon Mission AI estimates energy-related carbon emissions and helps RBC track ESG performance for smart water treatment operations.
+
+### ESG Recommendation
+
+{carbon_action}
+
+### How RBC Benefits
+
+- Supports ESG and green infrastructure goals
+- Reduces unnecessary energy consumption
+- Helps lower operational carbon footprint
+- Connects energy optimization with sustainability reporting
+- Provides carbon data for management and decision-making
+"""
+
+        carbon_table = pd.DataFrame({
+            "Metric": [
+                "Total Energy Consumption",
+                "Average Energy Consumption",
+                "Total CO2 Emission",
+                "Average CO2 Emission",
+                "Peak CO2 Emission",
+                "Sustainability Score",
+                "Carbon Status"
+            ],
+            "Value": [
+                f"{total_energy:,.2f}",
+                f"{avg_energy:,.2f}",
+                f"{total_carbon:,.2f} kg",
+                f"{avg_carbon:,.2f} kg",
+                f"{max_carbon:,.2f} kg",
+                f"{sustainability_score:.1f}/100",
+                carbon_status
+            ]
+        })
+
+        return response, carbon_table
+
     if intent == "energy_root_cause":
         risk_df = analyse_all_module_signals("Energy Digital Twin")
 
@@ -1825,11 +1918,39 @@ def get_module_dataframe(module_name):
         df = load_csv("merged_sample.csv", nrows=200000)
         return df
 
+    if module_name == "Carbon Mission AI":
+        df = load_csv("Data-Melbourne_F_fixed.csv")
+        df["Date"] = pd.to_datetime(
+            dict(
+                year=df["Year"].astype(int),
+                month=df["Month"].astype(int),
+                day=df["Day"].astype(int)
+            ),
+            errors="coerce"
+        )
+        df["Carbon Emission (kgCO2)"] = df["Energy Consumption"] * 0.584
+        return df
+
     return pd.DataFrame()
 
 
 def chatbot_intent(user_query):
     q = user_query.lower()
+
+    if any(word in q for word in [
+        "carbon",
+        "co2",
+        "co₂",
+        "emission",
+        "emissions",
+        "sustainability",
+        "sustainable",
+        "esg",
+        "green",
+        "carbon footprint",
+        "carbon mission"
+    ]):
+        return "carbon"
 
     if any(word in q for word in ["failure", "fail", "breakdown", "when"]):
         return "failure_trend"
@@ -1986,8 +2107,17 @@ def generate_chatbot_response(user_query, module_name):
         module_name = "Leak Detection"
     elif intent in ["energy"]:
         module_name = "Energy Digital Twin"
+    elif intent in ["carbon"]:
+        module_name = "Carbon Mission AI"
     elif intent in ["sensor"]:
         module_name = "Sensor Anomaly"
+
+    if intent == "carbon":
+        carbon_response, carbon_table = generate_operations_copilot_response(
+            user_query="carbon mission",
+            default_module=module_name
+        )
+        return carbon_response, carbon_table, None, None
 
     signal, direction = choose_signal_for_module(module_name, user_query)
 
@@ -2095,6 +2225,10 @@ You can ask me:
 - **What is the forecast failure time?**
 - **What is the risk probability?**
 - **What should the maintenance team do?**
+- **Show carbon emission**
+- **What is the sustainability score?**
+- **How can RBC reduce carbon footprint?**
+- **Explain Carbon Mission AI**
 """
     return response, None, None, None
 
@@ -2104,7 +2238,7 @@ def render_ai_chatbot_page():
 
     st.write(
         "Ask questions about root cause, failure trends, severity, forecast failure time, "
-        "risk probability, autonomous tickets, and maintenance planning."
+        "risk probability, autonomous tickets, maintenance planning, carbon emissions, and ESG performance."
     )
 
     selected_chat_module = st.selectbox(
@@ -2113,7 +2247,8 @@ def render_ai_chatbot_page():
             "Water Quality",
             "Leak Detection",
             "Energy Digital Twin",
-            "Sensor Anomaly"
+            "Sensor Anomaly",
+            "Carbon Mission AI"
         ]
     )
 
@@ -2125,7 +2260,7 @@ def render_ai_chatbot_page():
             st.markdown(message["content"])
 
     user_query = st.chat_input(
-        "Ask: Why is energy increasing? Which asset is most risky? Recommend maintenance plan."
+        "Ask: Show carbon emission. What is the sustainability score? Why is energy increasing?"
     )
 
     if user_query:
