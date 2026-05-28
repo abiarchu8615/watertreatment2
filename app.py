@@ -3117,7 +3117,7 @@ if selected_page == "Sensor Anomaly":
 
 
 # =========================
-# AI PREDICTION DEMO PAGE
+# AI PREDICTION DEMO PAGE (UPDATED TO DEPLOY WINNING CHAMPION MODELS)
 # =========================
 
 if selected_page == "AI Prediction Demo":
@@ -3136,14 +3136,12 @@ if selected_page == "AI Prediction Demo":
     # =========================
     # WATER QUALITY
     # =========================
-
     if model_choice == "Water Quality Pollution Level":
 
-        # USING BEST ENSEMBLE MODEL
-        model_path = MODELS / "water_quality_ensemble_model.joblib"
+        # TARGETS THE PRODUCTION CHAMPION PIPELINE SELECTION WINNER
+        model_path = MODELS / "water_quality_model.joblib"
 
         if model_path.exists():
-
             model = joblib.load(model_path)
 
             sample = (
@@ -3167,7 +3165,6 @@ if selected_page == "AI Prediction Demo":
             X = edited.drop(columns=["Timestamp"])
 
             if st.button("Predict water quality"):
-
                 pred = model.predict(X)[0]
 
                 st.success(f"Predicted Pollution Level: {pred}")
@@ -3176,31 +3173,27 @@ if selected_page == "AI Prediction Demo":
                     "Water Quality Pollution Level",
                     pred
                 )
-
                 show_maintenance_decision(risk, action)
-
         else:
             st.warning(
-                "Missing model: water_quality_ensemble_model.joblib"
+                "Missing core production model: water_quality_model.joblib. "
+                "Please process your updated train_models.py script first to initialize this framework."
             )
 
     # =========================
     # LEAK / BURST
     # =========================
-
     elif model_choice in ["Leak Status", "Burst Status"]:
 
-        # USING BEST ENSEMBLE MODELS
+        # TARGETS THE INDIVIDUAL COMPONENT CHAMPION PIPELINE SELECTION WINNERS
         fname = (
-            "leak_status_ensemble_model.joblib"
+            "leak_status_model.joblib"
             if model_choice == "Leak Status"
-            else "burst_status_ensemble_model.joblib"
+            else "burst_status_model.joblib"
         )
-
         model_path = MODELS / fname
 
         if model_path.exists():
-
             model = joblib.load(model_path)
 
             sample = (
@@ -3225,7 +3218,6 @@ if selected_page == "AI Prediction Demo":
             X = edited.drop(columns=["Timestamp"])
 
             if st.button("Predict leak/burst"):
-
                 pred = model.predict(X)[0]
 
                 st.success(f"Predicted {model_choice}: {pred}")
@@ -3234,23 +3226,22 @@ if selected_page == "AI Prediction Demo":
                     model_choice,
                     pred
                 )
-
                 show_maintenance_decision(risk, action)
-
         else:
-            st.warning(f"Missing model: {fname}")
+            st.warning(
+                f"Missing core production model: {fname}. "
+                "Please process your updated train_models.py script first to initialize this framework."
+            )
 
     # =========================
     # ENERGY
     # =========================
-
     else:
 
-        # USING BEST ENSEMBLE MODEL
-        model_path = MODELS / "energy_ensemble_model.joblib"
+        # TARGETS THE REGRESSION MODEL PIPELINE MATRIX SELECTION WINNER
+        model_path = MODELS / "energy_model.joblib"
 
         if model_path.exists():
-
             model = joblib.load(model_path)
 
             sample = (
@@ -3267,7 +3258,6 @@ if selected_page == "AI Prediction Demo":
             edited = st.data_editor(sample, num_rows="fixed")
 
             if st.button("Predict energy consumption"):
-
                 pred = model.predict(edited)[0]
 
                 st.success(
@@ -3278,14 +3268,12 @@ if selected_page == "AI Prediction Demo":
                     "Energy Consumption",
                     pred
                 )
-
                 show_maintenance_decision(risk, action)
-
         else:
             st.warning(
-                "Missing model: energy_ensemble_model.joblib"
+                "Missing core production model: energy_model.joblib. "
+                "Please process your updated train_models.py script first to initialize this framework."
             )
-
 
 # =========================
 # FAILURE TREND PREDICTION PAGE
