@@ -59,6 +59,7 @@ selected_page = st.sidebar.radio(
         "Failure Trend Prediction",
         "AI Chatbot",
         "Optimization AI",
+        "Carbon Mission AI",
         "Multi-Agent AI"
     ]
 )
@@ -2675,6 +2676,8 @@ if selected_page == "Overview":
     - **AI Chatbot:** provides interactive support and answers questions about water treatment operations.
 
     - **Optimization AI:** recommends optimal operating conditions to improve efficiency, reduce cost, and maintain treatment quality.
+    
+    - **Carbon Mission AI:** monitors carbon emissions, predicts energy-related environmental impact, and recommends sustainable operating strategies to reduce the plant’s carbon footprint.
 
     - **Multi-Agent AI:** coordinates multiple AI agents to monitor, predict, optimize, and support decision-making across the system.
 
@@ -3599,6 +3602,119 @@ if selected_page == "Optimization AI":
             "stable RBC treatment performance."
         )
 
+# =========================
+# CARBON MISSION AI PAGE
+# =========================
+
+if selected_page == "Carbon Mission AI":
+
+    st.subheader("Carbon Mission AI for Sustainable Water Treatment")
+
+    st.write(
+        "AI-powered sustainability monitoring for carbon reduction, "
+        "energy optimization, ESG tracking, and green water treatment operations."
+    )
+
+    df = load_csv("Data-Melbourne_F_fixed.csv")
+
+    # Example emission factor (Malaysia grid factor)
+    EMISSION_FACTOR = 0.584
+
+    # Carbon calculation
+    df["Carbon Emission (kgCO2)"] = (
+        df["Energy Consumption"] * EMISSION_FACTOR
+    )
+
+    # KPIs
+    total_carbon = df["Carbon Emission (kgCO2)"].sum()
+    avg_carbon = df["Carbon Emission (kgCO2)"].mean()
+    max_carbon = df["Carbon Emission (kgCO2)"].max()
+
+    c1, c2, c3 = st.columns(3)
+
+    c1.metric(
+        "Total CO₂ Emission",
+        f"{total_carbon:,.2f} kg"
+    )
+
+    c2.metric(
+        "Average CO₂ Emission",
+        f"{avg_carbon:,.2f} kg"
+    )
+
+    c3.metric(
+        "Peak CO₂ Emission",
+        f"{max_carbon:,.2f} kg"
+    )
+
+    # Sustainability Score
+    sustainability_score = max(
+        0,
+        100 - (avg_carbon / 10)
+    )
+
+    st.metric(
+        "Sustainability Score",
+        f"{sustainability_score:.1f}/100"
+    )
+
+    # Carbon trend chart
+    df["Date"] = pd.to_datetime(
+        dict(
+            year=df["Year"].astype(int),
+            month=df["Month"].astype(int),
+            day=df["Day"].astype(int)
+        ),
+        errors="coerce"
+    )
+
+    st.plotly_chart(
+        px.line(
+            df.sort_values("Date"),
+            x="Date",
+            y="Carbon Emission (kgCO2)",
+            title="Carbon Emission Trend"
+        ),
+        use_container_width=True
+    )
+
+    # Energy vs Carbon
+    st.plotly_chart(
+        px.scatter(
+            df,
+            x="Energy Consumption",
+            y="Carbon Emission (kgCO2)",
+            title="Energy Consumption vs Carbon Emission"
+        ),
+        use_container_width=True
+    )
+
+    st.subheader("AI Sustainability Recommendations")
+
+    if avg_carbon > 500:
+        st.warning(
+            "High carbon emission detected. "
+            "Reduce pump load and optimize aeration schedule."
+        )
+
+    else:
+        st.success(
+            "Carbon emission is within sustainable operating range."
+        )
+
+    st.info(
+        "Carbon Mission AI helps RBC support ESG initiatives, "
+        "reduce operational carbon footprint, and improve "
+        "sustainable smart water treatment operations."
+    )
+
+    # Download report
+    st.download_button(
+        "Download Carbon Report CSV",
+        data=df.to_csv(index=False),
+        file_name="carbon_mission_report.csv",
+        mime="text/csv"
+    )
 
 # =========================
 # MULTI-AGENT AI PAGE
