@@ -1,5 +1,5 @@
 model_name,class,false_positive_rate,true_positive_rate,threshold
 burst_status,1,0.0,0.0,inf
 burst_status,1,0.0,0.5,0.890228702581614
-burst_status,1,0.0,1.0,0.29102693609743463
-burst_status,1,1.0,1.0,2.006563529445793e-06
+burst_status,1,0.0,1.0,0.29102693609743446
+burst_status,1,1.0,1.0,2.0065635294457965e-06
